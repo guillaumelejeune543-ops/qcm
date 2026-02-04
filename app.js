@@ -341,8 +341,8 @@ function renderQuiz() {
   const q = state.questions[state.current];
   const idx = state.current;
 
-  const title = state.qcmTitle ? `QCM: ${state.qcmTitle} · ` : "";
-  $("quizMeta").textContent = `${title}Mode: ${state.mode === "exam" ? "Examen" : "Entrainement"} - ${state.questions.length} questions`;
+  const headerTitle = state.qcmTitle ? `QCM: ${state.qcmTitle} · ` : "";
+  $("quizMeta").textContent = `${headerTitle}Mode: ${state.mode === "exam" ? "Examen" : "Entrainement"} - ${state.questions.length} questions`;
   updateTimerDisplay();
 
   renderProgress();
@@ -359,10 +359,10 @@ function renderQuiz() {
     corrBox.innerHTML = "";
   }
 
-  const title = document.createElement("div");
-  title.className = "q-title";
-  title.textContent = q.question;
-  card.appendChild(title);
+  const titleEl = document.createElement("div");
+  titleEl.className = "q-title";
+  titleEl.textContent = q.question;
+  card.appendChild(titleEl);
 
   const meta = document.createElement("div");
   meta.className = "q-meta";

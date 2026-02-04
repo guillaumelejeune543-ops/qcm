@@ -1,5 +1,5 @@
-<!doctype html>
-<html lang="fr">
+﻿<!doctype html>
+<html lang="fr" data-accent="salmon">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -20,6 +20,12 @@
   </div>
 
   <div class="topbar-actions">
+    <div class="theme-grid topbar-themes">
+      <button class="theme-chip active" data-accent="salmon" title="Saumon">Saumon</button>
+      <button class="theme-chip" data-accent="rose" title="Rose">Rose</button>
+      <button class="theme-chip" data-accent="blue" title="Bleu">Bleu</button>
+      <button class="theme-chip" data-accent="green" title="Vert pale">Vert pale</button>
+    </div>
     <button id="btnTheme" class="btn btn-ghost">
       <span class="icon">Theme</span>
     </button>
@@ -39,10 +45,7 @@
 <!-- SETUP -->
 <section id="view-setup" class="card view">
   <div class="card-header">
-    <h2>Charger un QCM (JSON)</h2>
-    <p class="muted">
-      Colle ton JSON ici.
-    </p>
+    <h2>Charger un QCM</h2>
   </div>
 
   <div class="grid-2">
@@ -51,7 +54,7 @@
     <div class="panel">
       <label class="label">Coller le JSON</label>
       <textarea id="jsonInput" class="textarea"
-        placeholder='[{"type":"multi","question":"..."}]'></textarea>
+        placeholder='...'></textarea>
 
       <div class="row">
         <button id="btnLoadJson" class="btn btn-primary">Charger le QCM</button>
@@ -61,6 +64,16 @@
         </label>
 
         <button id="btnDemo" class="btn btn-ghost">Exemple</button>
+      </div>
+
+      <div class="notice">
+        <div class="notice-title">Comment creer ton QCM</div>
+        <ol class="notice-list">
+          <li>Ouvre une IA (ex: ChatGPT), importe ton PDF de cours.</li>
+          <li>Colle le prompt ci-contre dans l'IA.</li>
+          <li>Ajoute a la fin : "Genere X questions" (remplace X).</li>
+          <li>Copie le JSON genere et colle-le ici, ou importe le fichier .json.</li>
+        </ol>
       </div>
 
       <div id="setupMsg" class="msg"></div>
@@ -85,22 +98,12 @@
         <div class="toggle">
           <input id="timerToggle" type="checkbox" checked />
           <label for="timerToggle">
-            Activer le minuteur automatique (90 s / question)
+            Activer le minuteur
           </label>
         </div>
-        <p class="hint">
-          Le temps total est calculé automatiquement selon le nombre de questions.
-        </p>
-      </div>
-
-      <!-- BAREME -->
-      <div class="field">
-        <label class="label">Bareme LAS</label>
-        <div class="badge-row">
-          <span class="badge">0 erreur &rarr; 1.0</span>
-          <span class="badge">1 erreur &rarr; 0.5</span>
-          <span class="badge">2 erreurs &rarr; 0.2</span>
-          <span class="badge">&ge;3 erreurs &rarr; 0.0</span>
+        <div class="row" style="margin-top:8px;">
+          <label class="label" style="margin:0;">Secondes / question</label>
+          <input id="timerPerQuestion" class="select" type="number" min="5" step="5" value="90" />
         </div>
       </div>
 
@@ -139,6 +142,7 @@
   </div>
 
   <div id="questionCard" class="question"></div>
+  <div id="trainCorrection" class="train-correction hidden"></div>
 
   <div class="row space-between">
     <button id="btnPrev" class="btn btn-secondary">Precedente</button>
@@ -206,9 +210,7 @@
 
 </main>
 
-<footer class="footer">
-  <span class="muted">Plateforme QCM LAS &mdash; gratuite &mdash; v6</span>
-</footer>
+
 
 <!-- Anti-cache v6 -->
 <script src="app.js?v=6"></script>

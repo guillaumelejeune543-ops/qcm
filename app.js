@@ -1,4 +1,4 @@
-// -----------------------------
+﻿// -----------------------------
 // QCM LAS Platform (static, free)
 // -----------------------------
 
@@ -6,9 +6,11 @@ const $ = (id) => document.getElementById(id);
 
 const state = {
   mode: "exam",         // exam | train
-  theme: "dark",
+  theme: "light",
   timerEnabled: true,
+  timerPerQuestion: 90,
   timerTotalSec: 0,
+  accent: "salmon",
   timerRemainingSec: 0,
   timerRunning: false,
   timerLastTick: null,
@@ -21,7 +23,6 @@ const state = {
   finished: false
 };
 
-const SECONDS_PER_QUESTION = 90;
 let timerInterval = null;
 
 const PROMPT_TEXT = `Tu es un enseignant en LAS.
@@ -91,7 +92,7 @@ function updateTimerDisplay() {
 }
 
 function initTimerForQuestions() {
-  state.timerTotalSec = state.questions.length * SECONDS_PER_QUESTION;
+  state.timerTotalSec = state.questions.length * state.timerPerQuestion;
   state.timerRemainingSec = state.timerTotalSec;
   state.timerRunning = false;
   state.timerLastTick = null;
@@ -161,6 +162,14 @@ function setTheme(next) {
     $("btnTheme").querySelector(".icon").textContent = "Sombre";
   }
   autosaveMaybe();
+}
+
+function setAccent(next) {
+  state.accent = next;
+  document.documentElement.setAttribute("data-accent", next);
+  document.querySelectorAll(".theme-chip").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.accent === next);
+  });
 }
 
 function autosaveMaybe() {
@@ -328,7 +337,9 @@ function renderSetup() {
     btn.classList.toggle("active", btn.dataset.mode === state.mode);
   });
 
+  setAccent(state.accent || "salmon");
   $("timerToggle").checked = state.timerEnabled;
+  $("timerPerQuestion").value = String(state.timerPerQuestion || 90);
   if (state.theme === "light") setTheme("light"); else setTheme("dark");
   updateTimerDisplay();
 
@@ -369,6 +380,11 @@ function renderQuiz() {
 
   const card = $("questionCard");
   card.innerHTML = "";
+  const corrBox = $("trainCorrection");
+  if (corrBox) {
+    corrBox.classList.add("hidden");
+    corrBox.innerHTML = "";
+  }
 
   const title = document.createElement("div");
   title.className = "q-title";
@@ -451,8 +467,11 @@ function renderQuiz() {
   clearMsg($("quizMsg"));
   if (state.mode === "train" && state.validated[idx]) {
     const v = state.validated[idx];
-    setMsg($("quizMsg"), v.errors === 0 ? "ok" : (v.errors <= 2 ? "warn" : "err"),
-      `Correction : erreurs=${v.errors}, score=${v.score}. Va aux resultats pour le detail.`);
+    // no long message; score shown inside correction block
+    if (corrBox) {
+      corrBox.classList.remove("hidden");
+      corrBox.appendChild(buildCorrectionBlock(idx));
+    }
   }
 
   $("btnPrev").disabled = idx === 0;
@@ -615,53 +634,80 @@ function renderResults(filter="all") {
 
 function buildCorrectionBlock(i) {
   const q = state.questions[i];
+  const v = state.validated[i];
   const box = document.createElement("div");
 
   // answer from user
   const user = state.answers[i]?.payload;
 
-  const pre = document.createElement("pre");
+  if (v) {
+    const meta = document.createElement("div");
+    meta.className = "corr-meta";
+    meta.textContent = `Score: ${v.score}`;
+    box.appendChild(meta);
+  }
+
+  const list = document.createElement("div");
+  list.className = "corr-list";
+
+  let rows = [];
 
   if (q.type === "multi") {
     const correct = new Set(q.answer_indices);
     const userSet = new Set(user?.indices || []);
 
-    let lines = [];
+    rows = [];
     for (let k=0;k<5;k++){
       const opt = q.options[k];
       const isC = correct.has(k);
       const isU = userSet.has(k);
 
-      if (isC && isU) lines.push(`[OK] ${opt}`);
-      else if (isC && !isU) lines.push(`[OUBLIE] ${opt}`);
-      else if (!isC && isU) lines.push(`[FAUX] ${opt}`);
-      else lines.push(`- ${opt}`);
-    }
+      let state = "neutral";
+      let label = "";
+      if (isC && isU) { state = "ok"; label = "Correct"; }
+      else if (isC && !isU) { state = "miss"; label = "Oublie"; }
+      else if (!isC && isU) { state = "bad"; label = "Faux"; }
 
-    pre.textContent = lines.join("\n");
+      rows.push({ text: opt, state, label });
+    }
   } else {
     const truth = q.truth;
     const u = user?.truth || [null,null,null,null,null];
 
-    let lines = [];
+    rows = [];
     for (let k=0;k<5;k++){
       const item = q.items[k];
       const expected = truth[k] ? "Vrai" : "Faux";
       const got = (u[k] === null || u[k] === undefined) ? "-" : (u[k] ? "Vrai" : "Faux");
 
-      if (got === "-") lines.push(`[NR] ${item} - attendu: ${expected}`);
-      else if ((u[k] === truth[k])) lines.push(`[OK] ${item} - ${got}`);
-      else lines.push(`[FAUX] ${item} - ${got} (attendu: ${expected})`);
+      let state = "neutral";
+      let label = "";
+      let suffix = "";
+      if (got === "-") { state = "miss"; label = "Non repondu"; suffix = `attendu: ${expected}`; }
+      else if ((u[k] === truth[k])) { state = "ok"; label = "Correct"; suffix = got; }
+      else { state = "bad"; label = "Faux"; suffix = `${got} (attendu: ${expected})`; }
+
+      rows.push({ text: item, state, label, suffix });
     }
-    pre.textContent = lines.join("\n");
   }
+
+  rows.forEach(r => {
+    const line = document.createElement("div");
+    line.className = `corr-line ${r.state}`;
+    line.innerHTML = `
+      <span class="corr-tag">${r.label}</span>
+      <span class="corr-text">${escapeHtml(r.text)}</span>
+      ${r.suffix ? `<span class="corr-suffix">${escapeHtml(r.suffix)}</span>` : ""}
+    `;
+    list.appendChild(line);
+  });
 
   const exp = document.createElement("div");
   exp.style.marginTop = "10px";
   exp.innerHTML = `<div class="muted" style="font-weight:800;margin-bottom:6px;">Explication</div>
                    <div>${escapeHtml(q.explanation || "-")}</div>`;
 
-  box.appendChild(pre);
+  box.appendChild(list);
   box.appendChild(exp);
 
   if (Array.isArray(q.evidence) && q.evidence.length) {
@@ -767,7 +813,8 @@ const DEMO = [
 function init() {
   // theme default
   const restored = loadAutosave();
-  setTheme(state.theme || "dark");
+  setTheme(state.theme || "light");
+  setAccent(state.accent || "salmon");
 
   // set prompt
   $("promptBox").textContent = PROMPT_TEXT;
@@ -801,7 +848,14 @@ function init() {
       }
       updateTimerDisplay();
       autosaveMaybe();
-      setMsg($("setupMsg"), "ok", `Mode regle sur : ${state.mode === "exam" ? "Examen" : "Entrainement"}.`);
+      clearMsg($("setupMsg"));
+    });
+  });
+
+  // accent theme
+  document.querySelectorAll(".theme-chip").forEach(btn => {
+    btn.addEventListener("click", () => {
+      setAccent(btn.dataset.accent || "salmon");
     });
   });
 
@@ -814,6 +868,16 @@ function init() {
     }
     updateTimerDisplay();
     autosaveMaybe();
+  });
+
+  $("timerPerQuestion").addEventListener("input", (e) => {
+    const v = parseInt(e.target.value, 10);
+    state.timerPerQuestion = Number.isFinite(v) && v > 0 ? v : 90;
+    initTimerForQuestions();
+    if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
+      startTimer();
+    }
+    updateTimerDisplay();
   });
 
   // copy prompt

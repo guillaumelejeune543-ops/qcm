@@ -831,6 +831,13 @@ function init() {
 
   // reset
   $("btnResetAll").addEventListener("click", () => resetAll(true));
+    // FIX: fermer la modale quoi qu'il arrive au chargement
+  hideModal();
+
+  // FIX: touche Échap pour fermer la modale si elle s'affiche
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") hideModal();
+  });
 }
 
 init();

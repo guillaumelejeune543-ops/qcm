@@ -5,34 +5,92 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>QCM LAS &mdash; Plateforme</title>
   <meta name="description" content="Plateforme gratuite QCM LAS : import JSON, passage interactif, barème LAS, correction et note sur 20." />
-  <!-- Anti-cache v6 -->
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <!-- Anti-cache v7 -->
+  <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 
 <body>
 <div id="authGate" class="auth-gate hidden">
   <div class="auth-gate-card">
-    <h2>Connexion requise</h2>
-    <p class="muted">Cree un compte ou connecte-toi pour acceder au site.</p>
+    <div id="gateLogin" class="gate-screen">
+      <h2>Se connecter</h2>
+      <p class="muted">Accede a QCM LAS avec ton compte.</p>
+      <div class="auth-row">
+        <label class="label">Email</label>
+        <input id="gateEmail" class="input" type="email" placeholder="email@exemple.com" />
+      </div>
+      <div class="auth-row">
+        <label class="label">Mot de passe</label>
+        <input id="gatePassword" class="input" type="password" placeholder="Mot de passe" />
+      </div>
+      <div class="row">
+        <button id="btnGateSignIn" class="btn btn-primary">Se connecter</button>
+        <button id="btnGateReset" class="btn btn-ghost">Mot de passe oublie</button>
+      </div>
+      <div class="gate-switch">
+        <span class="muted">Pas de compte ?</span>
+        <button id="btnShowSignUp" class="btn btn-ghost">Creer un compte</button>
+      </div>
+    </div>
+
+    <div id="gateSignup" class="gate-screen hidden">
+      <h2>Creer un compte</h2>
+      <p class="muted">Quelques infos pour personnaliser ton espace.</p>
+      <div class="auth-row">
+        <label class="label">Prenom</label>
+        <input id="gateFirstName" class="input" type="text" placeholder="Prenom" />
+      </div>
+      <div class="auth-row">
+        <label class="label">Nom</label>
+        <input id="gateLastName" class="input" type="text" placeholder="Nom" />
+      </div>
+      <div class="auth-row">
+        <label class="label">Date de naissance</label>
+        <input id="gateBirthdate" class="input" type="date" />
+      </div>
+      <div class="auth-row">
+        <label class="label">Email</label>
+        <input id="gateEmail2" class="input" type="email" placeholder="email@exemple.com" />
+      </div>
+      <div class="auth-row">
+        <label class="label">Mot de passe</label>
+        <input id="gatePassword2" class="input" type="password" placeholder="Mot de passe" />
+      </div>
+      <div class="row">
+        <button id="btnGateSignUp" class="btn btn-primary">Creer un compte</button>
+        <button id="btnShowLogin" class="btn btn-ghost">J'ai deja un compte</button>
+      </div>
+    </div>
+
+    <div id="gateStatus" class="msg"></div>
+  </div>
+</div>
+
+<div id="profileGate" class="auth-gate hidden">
+  <div class="auth-gate-card">
+    <h2>Completer ton profil</h2>
+    <p class="muted">C'est rapide et obligatoire pour acceder au site.</p>
     <div class="auth-row">
-      <label class="label">Email</label>
-      <input id="gateEmail" class="input" type="email" placeholder="email@exemple.com" />
+      <label class="label">Prenom</label>
+      <input id="profileFirstName" class="input" type="text" placeholder="Prenom" />
     </div>
     <div class="auth-row">
-      <label class="label">Mot de passe</label>
-      <input id="gatePassword" class="input" type="password" placeholder="Mot de passe" />
+      <label class="label">Nom</label>
+      <input id="profileLastName" class="input" type="text" placeholder="Nom" />
+    </div>
+    <div class="auth-row">
+      <label class="label">Date de naissance</label>
+      <input id="profileBirthdate" class="input" type="date" />
     </div>
     <div class="row">
-      <button id="btnGateSignUp" class="btn btn-secondary">Creer un compte</button>
-      <button id="btnGateSignIn" class="btn btn-primary">Se connecter</button>
-      <button id="btnGateReset" class="btn btn-ghost">Mot de passe oublie</button>
+      <button id="btnSaveProfile" class="btn btn-primary">Enregistrer</button>
     </div>
-    <div id="gateStatus" class="msg"></div>
+    <div id="profileStatus" class="msg"></div>
   </div>
 </div>
 <header class="topbar">
   <div class="brand">
-    <div class="logo">Q</div>
+    <button id="btnAccount" class="logo account-btn" title="Compte">👤</button>
     <div>
       <div class="title">QCM LAS</div>
       <div class="subtitle">Examen interactif &bull; Bareme LAS &bull; Correction</div>
@@ -61,6 +119,14 @@
     <button id="btnResetAll" class="btn btn-ghost">Reinitialiser</button>
   </div>
 </header>
+
+<div id="accountMenu" class="account-menu hidden">
+  <div class="account-title">Compte</div>
+  <div id="authUser" class="muted">Non connecte</div>
+  <div class="row" style="margin-top:8px;">
+    <button id="btnSignOut" class="btn btn-ghost">Se deconnecter</button>
+  </div>
+</div>
 
 <main class="container">
 
@@ -110,30 +176,6 @@
 
     <!-- SETTINGS -->
     <div class="panel">
-      <h3>Compte</h3>
-      <div class="auth-card">
-        <div class="auth-row">
-          <label class="label">Email</label>
-          <input id="authEmail" class="input" type="email" placeholder="email@exemple.com" />
-        </div>
-        <div class="auth-row">
-          <label class="label">Mot de passe</label>
-          <input id="authPassword" class="input" type="password" placeholder="Mot de passe" />
-        </div>
-        <div class="row">
-          <button id="btnSignUp" class="btn btn-secondary">Creer un compte</button>
-          <button id="btnSignIn" class="btn btn-primary">Se connecter</button>
-          <button id="btnResetPwd" class="btn btn-ghost">Mot de passe oublie</button>
-        </div>
-        <div id="authStatus" class="msg"></div>
-        <div class="auth-session">
-          <span id="authUser" class="muted"></span>
-          <button id="btnSignOut" class="btn btn-ghost">Se deconnecter</button>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
       <h3>Paramètres</h3>
 
       <!-- MODE -->
@@ -266,9 +308,9 @@
 
 
 
-<!-- Anti-cache v6 -->
+<!-- Anti-cache v7 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
 

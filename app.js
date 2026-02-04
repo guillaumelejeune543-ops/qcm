@@ -29,7 +29,8 @@ let timerInterval = null;
 // Supabase
 const SUPABASE_URL = "https://tftqrxpgcqkcehzqheqj.supabase.co";
 const SUPABASE_ANON = "sb_publishable_aV4d75MGFdQCk-jHtpTFUQ_k1MrDOtS";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+var supabaseClient = window.supabaseClient || (window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON));
+const QUIZ_RUNS_TABLE = "quiz_runs";
 
 const PROMPT_TEXT = `Tu es un enseignant en LAS.
 Tu dois generer des QCM STRICTEMENT bases sur le cours fourni par l'etudiant.
@@ -219,38 +220,72 @@ function setGateStatus(type, text) {
   setMsg(el, type, text);
 }
 
+function needsProfile(user) {
+  if (!user) return false;
+  const meta = user.user_metadata || {};
+  return !meta.first_name || !meta.last_name || !meta.birthdate;
+}
+
+function showGateScreen(which) {
+  const login = $("gateLogin");
+  const signup = $("gateSignup");
+  if (!login || !signup) return;
+  login.classList.toggle("hidden", which !== "login");
+  signup.classList.toggle("hidden", which !== "signup");
+  clearMsg($("gateStatus"));
+}
+
 function renderAuth(user) {
   state.user = user || null;
   const email = $("authUser");
   if (email) email.textContent = user ? `Connecte: ${user.email}` : "Non connecte";
   const outBtn = $("btnSignOut");
   if (outBtn) outBtn.style.display = user ? "" : "none";
+
   const gate = $("authGate");
+  const profileGate = $("profileGate");
+  const mustProfile = !!user && needsProfile(user);
+
   if (gate) gate.classList.toggle("hidden", !!user);
-  document.body.classList.toggle("auth-locked", !user);
+  if (!user) showGateScreen("login");
+  if (profileGate) profileGate.classList.toggle("hidden", !mustProfile);
+
+  if (mustProfile) {
+    const meta = user.user_metadata || {};
+    if ($("profileFirstName")) $("profileFirstName").value = meta.first_name || "";
+    if ($("profileLastName")) $("profileLastName").value = meta.last_name || "";
+    if ($("profileBirthdate")) $("profileBirthdate").value = meta.birthdate || "";
+  }
+
+  const locked = !user || mustProfile;
+  document.body.classList.toggle("auth-locked", locked);
 }
 
-async function signUpWith(email, password, statusFn) {
+async function signUpWith(email, password, meta, statusFn) {
   if (!email || !password) return statusFn("warn", "Email et mot de passe requis.");
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabaseClient.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: window.location.href }
+    options: {
+      emailRedirectTo: window.location.href,
+      data: meta || {}
+    }
   });
   if (error) return statusFn("err", error.message);
   statusFn("ok", "Compte cree. Verifie tes emails.");
+  if (data?.user) renderAuth(data.user);
 }
 
 async function signInWith(email, password, statusFn) {
   if (!email || !password) return statusFn("warn", "Email et mot de passe requis.");
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if (error) return statusFn("err", error.message);
   statusFn("ok", "Connecte.");
 }
 
 async function resetWith(email, statusFn) {
   if (!email) return statusFn("warn", "Entre ton email.");
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.href
   });
   if (error) return statusFn("err", error.message);
@@ -258,7 +293,10 @@ async function resetWith(email, statusFn) {
 }
 
 async function saveRunIfAuthed() {
-  if (!state.user) return;
+  if (!state.user) {
+    console.warn("saveRunIfAuthed: no user session, skip.");
+    return;
+  }
   try {
     const payload = {
       user_id: state.user.id,
@@ -269,10 +307,26 @@ async function saveRunIfAuthed() {
       validated: state.validated,
       flagged: Array.from(state.flagged)
     };
-    await supabase.from("quiz_runs").insert(payload);
+    const { error } = await supabaseClient.from(QUIZ_RUNS_TABLE).insert([payload]);
+    if (error) {
+      console.error("Quiz run insert failed:", error);
+    } else {
+      console.info("Quiz run saved.");
+    }
   } catch {
     // ignore for now
+    console.error("Quiz run insert threw an exception.");
   }
+}
+
+async function updateProfile(meta, statusFn) {
+  if (!meta?.first_name || !meta?.last_name || !meta?.birthdate) {
+    return statusFn("warn", "Prenom, nom et date de naissance requis.");
+  }
+  const { data, error } = await supabaseClient.auth.updateUser({ data: meta });
+  if (error) return statusFn("err", error.message);
+  statusFn("ok", "Profil enregistre.");
+  if (data?.user) renderAuth(data.user);
 }
 
 function goStep(step) {
@@ -911,40 +965,30 @@ function init() {
   }
 
   // auth init
-  supabase.auth.getSession().then(({ data }) => {
+  supabaseClient.auth.getSession().then(({ data }) => {
     renderAuth(data.session?.user || null);
   });
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
     renderAuth(session?.user || null);
   });
 
-  $("btnSignUp").addEventListener("click", async () => {
-    const email = $("authEmail").value.trim();
-    const password = $("authPassword").value;
-    await signUpWith(email, password, setAuthStatus);
-  });
-
-  $("btnSignIn").addEventListener("click", async () => {
-    const email = $("authEmail").value.trim();
-    const password = $("authPassword").value;
-    await signInWith(email, password, setAuthStatus);
-  });
-
-  $("btnResetPwd").addEventListener("click", async () => {
-    const email = $("authEmail").value.trim();
-    await resetWith(email, setAuthStatus);
-  });
-
-  $("btnSignOut").addEventListener("click", async () => {
-    await supabase.auth.signOut();
+  const btnSignOut = $("btnSignOut");
+  if (btnSignOut) btnSignOut.addEventListener("click", async () => {
+    await supabaseClient.auth.signOut();
     setAuthStatus("ok", "Deconnecte.");
   });
 
   // gate buttons
   $("btnGateSignUp").addEventListener("click", async () => {
-    const email = $("gateEmail").value.trim();
-    const password = $("gatePassword").value;
-    await signUpWith(email, password, setGateStatus);
+    const first = $("gateFirstName").value.trim();
+    const last = $("gateLastName").value.trim();
+    const birth = $("gateBirthdate").value;
+    const email = $("gateEmail2").value.trim();
+    const password = $("gatePassword2").value;
+    if (!first || !last || !birth) {
+      return setGateStatus("warn", "Prenom, nom et date de naissance requis.");
+    }
+    await signUpWith(email, password, { first_name: first, last_name: last, birthdate: birth }, setGateStatus);
   });
   $("btnGateSignIn").addEventListener("click", async () => {
     const email = $("gateEmail").value.trim();
@@ -954,6 +998,20 @@ function init() {
   $("btnGateReset").addEventListener("click", async () => {
     const email = $("gateEmail").value.trim();
     await resetWith(email, setGateStatus);
+  });
+  $("btnShowSignUp").addEventListener("click", () => showGateScreen("signup"));
+  $("btnShowLogin").addEventListener("click", () => showGateScreen("login"));
+
+  $("btnSaveProfile").addEventListener("click", async () => {
+    const first = $("profileFirstName").value.trim();
+    const last = $("profileLastName").value.trim();
+    const birth = $("profileBirthdate").value;
+    await updateProfile({ first_name: first, last_name: last, birthdate: birth }, (t, m) => {
+      const el = $("profileStatus");
+      if (!el) return;
+      if (!m) return clearMsg(el);
+      setMsg(el, t, m);
+    });
   });
 
   // steps nav
@@ -996,6 +1054,17 @@ function init() {
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".theme-menu")) {
       $("accentMenu").classList.add("hidden");
+    }
+  });
+
+  // account menu
+  $("btnAccount").addEventListener("click", (e) => {
+    e.stopPropagation();
+    $("accountMenu").classList.toggle("hidden");
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("#accountMenu") && !e.target.closest("#btnAccount")) {
+      $("accountMenu").classList.add("hidden");
     }
   });
 
@@ -1131,3 +1200,4 @@ function init() {
 }
 
 init();
+

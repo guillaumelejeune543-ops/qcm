@@ -29,7 +29,19 @@ let timerInterval = null;
 // Supabase
 const SUPABASE_URL = "https://tftqrxpgcqkcehzqheqj.supabase.co";
 const SUPABASE_ANON = "sb_publishable_aV4d75MGFdQCk-jHtpTFUQ_k1MrDOtS";
-var supabaseClient = window.supabaseClient || (window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON));
+const SUPABASE_STORAGE_KEY = "qcm_las_auth";
+var supabaseClient = window.supabaseClient || (window.supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: SUPABASE_STORAGE_KEY
+    }
+  }
+));
 const QUIZ_RUNS_TABLE = "quiz_runs";
 
 const PROMPT_TEXT = `Tu es un enseignant en LAS.
@@ -1024,11 +1036,19 @@ function init() {
   });
 
   // segmented mode
+  const segWrap = document.querySelector(".segmented");
+  const setSegIndex = (mode) => {
+    if (!segWrap) return;
+    const idx = mode === "train" ? 1 : 0;
+    segWrap.style.setProperty("--seg-index", String(idx));
+  };
+  setSegIndex(state.mode);
   document.querySelectorAll(".seg").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".seg").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       state.mode = btn.dataset.mode;
+      setSegIndex(state.mode);
       if (state.mode !== "exam") {
         stopTimer();
       } else if (state.timerEnabled && !$("view-quiz").classList.contains("hidden")) {

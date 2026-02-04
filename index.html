@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>QCM LAS &mdash; Plateforme</title>
   <meta name="description" content="Plateforme gratuite QCM LAS : import JSON, passage interactif, barème LAS, correction et note sur 20." />
-  <!-- Anti-cache v7 -->
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <!-- Anti-cache v8 -->
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 
 <body>
@@ -147,6 +147,9 @@
 
     <!-- JSON INPUT -->
     <div class="panel">
+      <label class="label">Titre du QCM (optionnel)</label>
+      <input id="qcmTitleInput" class="input" type="text" placeholder="Ex: Cardiologie - S1" />
+
       <label class="label">Coller le JSON</label>
       <textarea id="jsonInput" class="textarea"
         placeholder='...'></textarea>
@@ -310,9 +313,11 @@
 
 
 
-<!-- Anti-cache v7 -->
+<!-- Anti-cache v8 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=7"></script>
+<script src="ui.js?v=8"></script>
+<script src="auth.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
 

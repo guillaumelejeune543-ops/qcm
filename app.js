@@ -6,8 +6,13 @@ const $ = (id) => document.getElementById(id);
 
 const state = {
   mode: "exam",         // exam | train
-  autosave: true,
   theme: "dark",
+  timerEnabled: true,
+  timerTotalSec: 0,
+  timerRemainingSec: 0,
+  timerRunning: false,
+  timerLastTick: null,
+  timerLastSave: 0,
   questions: [],
   current: 0,
   answers: {},          // {idx: {type, payload}}
@@ -16,74 +21,18 @@ const state = {
   finished: false
 };
 
-// -----------------------------
-// TIMER EXAMEN LAS (AJOUT SANS MODIFIER LE RESTE)
-// -----------------------------
-const TIME_PER_QUESTION = 90; // secondes
-let examTimerEnabled = true;
-let examTotalTime = 0;
-let examRemainingTime = 0;
-let examTimerInterval = null;
-
-function formatTimeMMSS(sec) {
-  const m = Math.floor(sec / 60).toString().padStart(2, "0");
-  const s = Math.floor(sec % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
-}
-
-function startExamTimer() {
-  examTimerEnabled =
-    state.mode === "exam" &&
-    $("timerToggle") &&
-    $("timerToggle").checked === true;
-
-  if (!examTimerEnabled) {
-    if ($("timerDisplay")) $("timerDisplay").textContent = "⏱️ —";
-    return;
-  }
-
-  examTotalTime = state.questions.length * TIME_PER_QUESTION;
-  examRemainingTime = examTotalTime;
-
-  if ($("timerDisplay")) {
-    $("timerDisplay").textContent = "⏱️ " + formatTimeMMSS(examRemainingTime);
-  }
-
-  examTimerInterval = setInterval(() => {
-    examRemainingTime--;
-
-    if ($("timerDisplay")) {
-      $("timerDisplay").textContent = "⏱️ " + formatTimeMMSS(examRemainingTime);
-    }
-
-    if (examRemainingTime <= 0) {
-      stopExamTimer();
-      state.finished = true;
-      autosaveMaybe();
-      goStep("results");
-    }
-  }, 1000);
-}
-
-function stopExamTimer() {
-  if (examTimerInterval) {
-    clearInterval(examTimerInterval);
-    examTimerInterval = null;
-  }
-}
-
-
-const STORAGE_KEY = "qcm_las_v1_state";
+const SECONDS_PER_QUESTION = 90;
+let timerInterval = null;
 
 const PROMPT_TEXT = `Tu es un enseignant en LAS.
-Tu dois générer des QCM STRICTEMENT basés sur le cours fourni par l’étudiant.
+Tu dois generer des QCM STRICTEMENT bases sur le cours fourni par l'etudiant.
 
 Contraintes OBLIGATOIRES :
-- Langue : français
-- Aucun contenu inventé (si l’info n’est pas dans le cours, ne pas l’utiliser)
-- Réponse en JSON STRICT (aucun texte hors JSON)
+- Langue : francais
+- Aucun contenu invente (si l'info n'est pas dans le cours, ne pas l'utiliser)
+- Reponse en JSON STRICT (aucun texte hors JSON)
 - 80% questions type "multi" et 20% type "tf"
-- Toujours 5 propositions/items A→E
+- Toujours 5 propositions/items A->E
 
 Format JSON attendu :
 [
@@ -92,7 +41,7 @@ Format JSON attendu :
     "question": "Parmi les propositions suivantes, ...",
     "options": ["A ...","B ...","C ...","D ...","E ..."],
     "answer_indices": [1,3],
-    "explanation": "Explication basée sur le cours.",
+    "explanation": "Explication basee sur le cours.",
     "evidence": [{"page": 3, "excerpt": "copier-coller du cours..."}]
   },
   {
@@ -100,17 +49,17 @@ Format JSON attendu :
     "question": "Concernant ...",
     "items": ["A ...","B ...","C ...","D ...","E ..."],
     "truth": [true,false,true,false,false],
-    "explanation": "Explication basée sur le cours.",
+    "explanation": "Explication basee sur le cours.",
     "evidence": [{"page": 5, "excerpt": "copier-coller du cours..."}]
   }
 ]
 
-Règles :
+Regles :
 - options/items doivent commencer exactement par "A ", "B ", "C ", "D ", "E "
 - answer_indices contient des indices 0..4
-- truth contient 5 booléens
-- explanation est en français et ne doit pas ajouter d’informations hors cours
-- evidence est optionnel mais recommandé (1 à 3 extraits)
+- truth contient 5 booleens
+- explanation est en francais et ne doit pas ajouter d'informations hors cours
+- evidence est optionnel mais recommande (1 a 3 extraits)
 `;
 
 function setMsg(el, type, text) {
@@ -123,60 +72,119 @@ function clearMsg(el) {
   el.textContent = "";
 }
 
+function formatTime(sec) {
+  const s = Math.max(0, Math.floor(sec || 0));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0");
+}
+
+function updateTimerDisplay() {
+  const el = $("timerDisplay");
+  if (!el) return;
+  const prefix = "Temps ";
+  if (state.mode !== "exam" || !state.timerEnabled || !state.questions.length) {
+    el.textContent = prefix + "--:--";
+    return;
+  }
+  el.textContent = prefix + formatTime(state.timerRemainingSec);
+}
+
+function initTimerForQuestions() {
+  state.timerTotalSec = state.questions.length * SECONDS_PER_QUESTION;
+  state.timerRemainingSec = state.timerTotalSec;
+  state.timerRunning = false;
+  state.timerLastTick = null;
+  state.timerLastSave = 0;
+  updateTimerDisplay();
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  state.timerRunning = false;
+  state.timerLastTick = null;
+  updateTimerDisplay();
+}
+
+function tickTimer() {
+  if (!state.timerRunning) return stopTimer();
+  if (state.mode !== "exam" || !state.timerEnabled) return stopTimer();
+
+  const now = Date.now();
+  const last = state.timerLastTick || now;
+  const delta = Math.max(1, Math.floor((now - last) / 1000));
+  state.timerLastTick = now;
+  state.timerRemainingSec = Math.max(0, (state.timerRemainingSec || 0) - delta);
+
+  updateTimerDisplay();
+
+  if (!state.timerLastSave || (now - state.timerLastSave) > 10000) {
+    state.timerLastSave = now;
+    autosaveMaybe();
+  }
+
+  if (state.timerRemainingSec <= 0) {
+    stopTimer();
+    state.finished = true;
+    goStep("results");
+  }
+}
+
+function startTimer() {
+  if (state.finished) return stopTimer();
+  if (state.mode !== "exam" || !state.timerEnabled || !state.questions.length) return stopTimer();
+  if (timerInterval) return;
+
+  if (!state.timerTotalSec) {
+    initTimerForQuestions();
+  }
+  if (!state.timerRemainingSec || state.timerRemainingSec <= 0) {
+    state.timerRemainingSec = state.timerTotalSec;
+  }
+
+  state.timerRunning = true;
+  state.timerLastTick = Date.now();
+  updateTimerDisplay();
+  timerInterval = setInterval(tickTimer, 1000);
+}
+
 function setTheme(next) {
   state.theme = next;
   if (next === "light") {
     document.documentElement.setAttribute("data-theme", "light");
-    $("btnTheme").querySelector(".icon").textContent = "☀️";
+    $("btnTheme").querySelector(".icon").textContent = "Clair";
   } else {
     document.documentElement.removeAttribute("data-theme");
-    $("btnTheme").querySelector(".icon").textContent = "🌙";
+    $("btnTheme").querySelector(".icon").textContent = "Sombre";
   }
   autosaveMaybe();
 }
 
 function autosaveMaybe() {
-  if (!state.autosave) return;
-  const serial = {
-    ...state,
-    flagged: Array.from(state.flagged)
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(serial));
+  return;
 }
 
 function loadAutosave() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return false;
-    const saved = JSON.parse(raw);
-
-    // minimal restore
-    state.mode = saved.mode || "exam";
-    state.autosave = saved.autosave ?? true;
-    state.theme = saved.theme || "dark";
-    state.questions = saved.questions || [];
-    state.current = saved.current || 0;
-    state.answers = saved.answers || {};
-    state.validated = saved.validated || {};
-    state.flagged = new Set(saved.flagged || []);
-    state.finished = saved.finished || false;
-
-    return Array.isArray(state.questions) && state.questions.length > 0;
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 function resetAll(confirmUser=true) {
-  stopExamTimer();
-  if (confirmUser && !confirm("Tout réinitialiser (QCM + réponses) ?")) return;
+  if (confirmUser && !confirm("Tout reinitialiser (QCM + reponses) ?")) return;
+  stopTimer();
   state.questions = [];
   state.current = 0;
   state.answers = {};
   state.validated = {};
   state.flagged = new Set();
   state.finished = false;
-  localStorage.removeItem(STORAGE_KEY);
+  state.timerTotalSec = 0;
+  state.timerRemainingSec = 0;
+  state.timerRunning = false;
+  state.timerLastTick = null;
+  state.timerLastSave = 0;
   goStep("setup");
   renderSetup();
 }
@@ -194,57 +202,57 @@ function goStep(step) {
 
   if (step === "quiz") {
     renderQuiz();
-    startExamTimer();
+    if (state.mode === "exam" && state.timerEnabled) startTimer();
+    else stopTimer();
+  } else {
+    stopTimer();
   }
-  if (step === "results") {
-    stopExamTimer();
-    renderResults();
-  }
+  if (step === "results") renderResults();
 }
 
 function validateQuestion(q, idx) {
   const baseErr = (msg) => `Question ${idx+1}: ${msg}`;
   if (!q || typeof q !== "object") throw new Error(baseErr("objet invalide"));
 
-  if (!["multi","tf"].includes(q.type)) throw new Error(baseErr("type doit être 'multi' ou 'tf'"));
+  if (!["multi","tf"].includes(q.type)) throw new Error(baseErr("type doit etre 'multi' ou 'tf'"));
   if (typeof q.question !== "string" || q.question.trim().length < 5) throw new Error(baseErr("question trop courte"));
   if (typeof q.explanation !== "string") q.explanation = "";
 
   // optional evidence
   if (q.evidence !== undefined) {
-    if (!Array.isArray(q.evidence)) throw new Error(baseErr("evidence doit être un tableau si présent"));
+    if (!Array.isArray(q.evidence)) throw new Error(baseErr("evidence doit etre un tableau si present"));
     q.evidence.forEach((ev, i) => {
       if (typeof ev !== "object") throw new Error(baseErr(`evidence[${i}] invalide`));
-      if (typeof ev.page !== "number") throw new Error(baseErr(`evidence[${i}].page doit être un nombre`));
-      if (typeof ev.excerpt !== "string") throw new Error(baseErr(`evidence[${i}].excerpt doit être une chaîne`));
+      if (typeof ev.page !== "number") throw new Error(baseErr(`evidence[${i}].page doit etre un nombre`));
+      if (typeof ev.excerpt !== "string") throw new Error(baseErr(`evidence[${i}].excerpt doit etre une chaine`));
     });
   }
 
   const mustPrefix = ["A ","B ","C ","D ","E "];
 
   if (q.type === "multi") {
-    if (!Array.isArray(q.options) || q.options.length !== 5) throw new Error(baseErr("options doit contenir 5 éléments"));
+    if (!Array.isArray(q.options) || q.options.length !== 5) throw new Error(baseErr("options doit contenir 5 elements"));
     q.options.forEach((s, i) => {
-      if (typeof s !== "string") throw new Error(baseErr("options doivent être des chaînes"));
+      if (typeof s !== "string") throw new Error(baseErr("options doivent etre des chaines"));
       if (!s.startsWith(mustPrefix[i])) throw new Error(baseErr(`options[${i}] doit commencer par "${mustPrefix[i]}"`));
     });
     if (!Array.isArray(q.answer_indices) || q.answer_indices.length < 1 || q.answer_indices.length > 5) {
-      throw new Error(baseErr("answer_indices doit contenir 1 à 5 indices"));
+      throw new Error(baseErr("answer_indices doit contenir 1 a 5 indices"));
     }
     const set = new Set(q.answer_indices);
     if (set.size !== q.answer_indices.length) throw new Error(baseErr("answer_indices contient des doublons"));
     q.answer_indices.forEach(n => {
-      if (!Number.isInteger(n) || n < 0 || n > 4) throw new Error(baseErr("answer_indices doit être entre 0 et 4"));
+      if (!Number.isInteger(n) || n < 0 || n > 4) throw new Error(baseErr("answer_indices doit etre entre 0 et 4"));
     });
   } else {
-    if (!Array.isArray(q.items) || q.items.length !== 5) throw new Error(baseErr("items doit contenir 5 éléments"));
+    if (!Array.isArray(q.items) || q.items.length !== 5) throw new Error(baseErr("items doit contenir 5 elements"));
     q.items.forEach((s, i) => {
-      if (typeof s !== "string") throw new Error(baseErr("items doivent être des chaînes"));
+      if (typeof s !== "string") throw new Error(baseErr("items doivent etre des chaines"));
       if (!s.startsWith(mustPrefix[i])) throw new Error(baseErr(`items[${i}] doit commencer par "${mustPrefix[i]}"`));
     });
-    if (!Array.isArray(q.truth) || q.truth.length !== 5) throw new Error(baseErr("truth doit contenir 5 booléens"));
+    if (!Array.isArray(q.truth) || q.truth.length !== 5) throw new Error(baseErr("truth doit contenir 5 booleens"));
     q.truth.forEach(b => {
-      if (typeof b !== "boolean") throw new Error(baseErr("truth doit contenir des booléens"));
+      if (typeof b !== "boolean") throw new Error(baseErr("truth doit contenir des booleens"));
     });
   }
 
@@ -259,12 +267,12 @@ function loadQuestionsFromJsonText(text) {
   try {
     data = JSON.parse(text);
   } catch {
-    setMsg(setupMsg, "err", "JSON invalide : impossible à parser. Vérifie les crochets, virgules, guillemets.");
+    setMsg(setupMsg, "err", "JSON invalide : impossible a parser. Verifie les crochets, virgules, guillemets.");
     return false;
   }
 
   if (!Array.isArray(data) || data.length === 0) {
-    setMsg(setupMsg, "err", "Le JSON doit être un tableau non vide de questions.");
+    setMsg(setupMsg, "err", "Le JSON doit etre un tableau non vide de questions.");
     return false;
   }
 
@@ -276,8 +284,9 @@ function loadQuestionsFromJsonText(text) {
     state.validated = {};
     state.flagged = new Set();
     state.finished = false;
+    initTimerForQuestions();
     autosaveMaybe();
-    setMsg(setupMsg, "ok", `✅ QCM chargé : ${validated.length} questions. Tu peux démarrer.`);
+    setMsg(setupMsg, "ok", `QCM charge : ${validated.length} questions. Tu peux demarrer.`);
     return true;
   } catch (e) {
     setMsg(setupMsg, "err", e.message || "Erreur de validation du format.");
@@ -319,11 +328,12 @@ function renderSetup() {
     btn.classList.toggle("active", btn.dataset.mode === state.mode);
   });
 
-  $("autosaveToggle").checked = state.autosave;
+  $("timerToggle").checked = state.timerEnabled;
   if (state.theme === "light") setTheme("light"); else setTheme("dark");
+  updateTimerDisplay();
 
   if (state.questions.length) {
-    setMsg($("setupMsg"), "ok", `✅ QCM en mémoire : ${state.questions.length} questions. Tu peux aller à l’étape 2.`);
+    setMsg($("setupMsg"), "ok", `QCM en memoire : ${state.questions.length} questions. Tu peux aller a l'etape 2.`);
   } else {
     clearMsg($("setupMsg"));
   }
@@ -336,7 +346,7 @@ function renderProgress() {
   const pct = Math.round(((idx+1) / n) * 100);
 
   $("progressFill").style.width = pct + "%";
-  $("progressText").textContent = `Question ${idx+1}/${n} — Validées: ${doneCount}/${n}`;
+  $("progressText").textContent = `Question ${idx+1}/${n} - Validees: ${doneCount}/${n}`;
 }
 
 function renderQuiz() {
@@ -348,13 +358,14 @@ function renderQuiz() {
   const q = state.questions[state.current];
   const idx = state.current;
 
-  $("quizMeta").textContent = `Mode: ${state.mode === "exam" ? "Examen" : "Entraînement"} • ${state.questions.length} questions`;
+  $("quizMeta").textContent = `Mode: ${state.mode === "exam" ? "Examen" : "Entrainement"} - ${state.questions.length} questions`;
+  updateTimerDisplay();
 
   renderProgress();
 
   const isFlagged = state.flagged.has(idx);
   $("btnFlag").style.borderColor = isFlagged ? "rgba(255,204,102,.65)" : "";
-  $("btnFlag").textContent = isFlagged ? "⭐ Marquée" : "⭐ À revoir";
+  $("btnFlag").textContent = isFlagged ? "Marquee" : "A revoir";
 
   const card = $("questionCard");
   card.innerHTML = "";
@@ -366,7 +377,7 @@ function renderQuiz() {
 
   const meta = document.createElement("div");
   meta.className = "q-meta";
-  meta.textContent = q.type === "multi" ? "QCM multi-réponses (A→E)" : "Vrai/Faux par items (A→E)";
+  meta.textContent = q.type === "multi" ? "QCM multi-reponses (A->E)" : "Vrai/Faux par items (A->E)";
   card.appendChild(meta);
 
   // previous saved answer
@@ -441,7 +452,7 @@ function renderQuiz() {
   if (state.mode === "train" && state.validated[idx]) {
     const v = state.validated[idx];
     setMsg($("quizMsg"), v.errors === 0 ? "ok" : (v.errors <= 2 ? "warn" : "err"),
-      `Correction : erreurs=${v.errors}, score=${v.score}. Va aux résultats pour le détail.`);
+      `Correction : erreurs=${v.errors}, score=${v.score}. Va aux resultats pour le detail.`);
   }
 
   $("btnPrev").disabled = idx === 0;
@@ -484,7 +495,7 @@ function validateCurrent() {
     // require all answered
     const missing = truth.filter(v => v === null || v === undefined).length;
     if (missing > 0) {
-      setMsg(quizMsg, "warn", "Il manque des réponses (Vrai/Faux) sur au moins un item.");
+      setMsg(quizMsg, "warn", "Il manque des reponses (Vrai/Faux) sur au moins un item.");
       autosaveMaybe();
       return;
     }
@@ -496,9 +507,9 @@ function validateCurrent() {
 
   if (state.mode === "train") {
     const t = result.errors === 0 ? "ok" : (result.errors <= 2 ? "warn" : "err");
-    setMsg(quizMsg, t, `✅ Validé — erreurs=${result.errors} — score=${result.score}`);
+    setMsg(quizMsg, t, `Valide - erreurs=${result.errors} - score=${result.score}`);
   } else {
-    setMsg(quizMsg, "ok", "✅ Réponse enregistrée. (Correction complète à la fin — mode Examen)");
+    setMsg(quizMsg, "ok", "Reponse enregistree. (Correction complete a la fin - mode Examen)");
   }
 }
 
@@ -543,7 +554,7 @@ function renderResults(filter="all") {
     const score = v ? v.score : 0.0;
     const errors = v ? v.errors : null;
 
-    const isWrong = v ? (v.errors >= 1) : true; // non validé = considéré erreur
+    const isWrong = v ? (v.errors >= 1) : true; // non valide = considere erreur
     const shouldShow =
       filter === "all" ||
       (filter === "wrong" && isWrong) ||
@@ -558,7 +569,7 @@ function renderResults(filter="all") {
     head.className = "result-head";
 
     const left = document.createElement("div");
-    left.innerHTML = `<div class="result-title">Q${i+1} — ${q.type === "multi" ? "Multi" : "V/F"}</div>
+    left.innerHTML = `<div class="result-title">Q${i+1} - ${q.type === "multi" ? "Multi" : "V/F"}</div>
                       <div class="muted">${escapeHtml(q.question)}</div>`;
 
     const tags = document.createElement("div");
@@ -572,10 +583,10 @@ function renderResults(filter="all") {
     tagScore.textContent = `score ${score}`;
 
     tagType.className = "tag";
-    tagType.textContent = errors === null ? "non validée" : `${errors} erreur(s)`;
+    tagType.textContent = errors === null ? "non validee" : `${errors} erreur(s)`;
 
     tagFlag.className = "tag" + (isFlag ? " warn" : "");
-    tagFlag.textContent = isFlag ? "⭐" : "";
+    tagFlag.textContent = isFlag ? "Flag" : "";
 
     tags.appendChild(tagScore);
     tags.appendChild(tagType);
@@ -621,10 +632,10 @@ function buildCorrectionBlock(i) {
       const isC = correct.has(k);
       const isU = userSet.has(k);
 
-      if (isC && isU) lines.push(`✅ ${opt}`);
-      else if (isC && !isU) lines.push(`⚠️ (oublié) ${opt}`);
-      else if (!isC && isU) lines.push(`❌ ${opt}`);
-      else lines.push(`• ${opt}`);
+      if (isC && isU) lines.push(`[OK] ${opt}`);
+      else if (isC && !isU) lines.push(`[OUBLIE] ${opt}`);
+      else if (!isC && isU) lines.push(`[FAUX] ${opt}`);
+      else lines.push(`- ${opt}`);
     }
 
     pre.textContent = lines.join("\n");
@@ -636,11 +647,11 @@ function buildCorrectionBlock(i) {
     for (let k=0;k<5;k++){
       const item = q.items[k];
       const expected = truth[k] ? "Vrai" : "Faux";
-      const got = (u[k] === null || u[k] === undefined) ? "—" : (u[k] ? "Vrai" : "Faux");
+      const got = (u[k] === null || u[k] === undefined) ? "-" : (u[k] ? "Vrai" : "Faux");
 
-      if (got === "—") lines.push(`⚠️ (non répondu) ${item} — attendu: ${expected}`);
-      else if ((u[k] === truth[k])) lines.push(`✅ ${item} — ${got}`);
-      else lines.push(`❌ ${item} — ${got} (attendu: ${expected})`);
+      if (got === "-") lines.push(`[NR] ${item} - attendu: ${expected}`);
+      else if ((u[k] === truth[k])) lines.push(`[OK] ${item} - ${got}`);
+      else lines.push(`[FAUX] ${item} - ${got} (attendu: ${expected})`);
     }
     pre.textContent = lines.join("\n");
   }
@@ -648,7 +659,7 @@ function buildCorrectionBlock(i) {
   const exp = document.createElement("div");
   exp.style.marginTop = "10px";
   exp.innerHTML = `<div class="muted" style="font-weight:800;margin-bottom:6px;">Explication</div>
-                   <div>${escapeHtml(q.explanation || "—")}</div>`;
+                   <div>${escapeHtml(q.explanation || "-")}</div>`;
 
   box.appendChild(pre);
   box.appendChild(exp);
@@ -704,7 +715,7 @@ function openQuestionGrid() {
     wrap.appendChild(btn);
   }
 
-  showModal("Aller à une question", wrap);
+  showModal("Aller a une question", wrap);
 }
 
 function escapeHtml(str) {
@@ -722,27 +733,27 @@ function escapeHtml(str) {
 const DEMO = [
   {
     "type": "multi",
-    "question": "Parmi les propositions suivantes concernant le barème LAS, lesquelles sont correctes ?",
+    "question": "Parmi les propositions suivantes concernant le bareme LAS, lesquelles sont correctes ?",
     "options": [
       "A 0 erreur donne 1.0 point.",
       "B 1 erreur donne 0.5 point.",
       "C 2 erreurs donnent 0.2 point.",
       "D 3 erreurs donnent 0.2 point.",
-      "E ≥3 erreurs donnent 0.0 point."
+      "E >=3 erreurs donnent 0.0 point."
     ],
     "answer_indices": [0,1,2,4],
-    "explanation": "Le barème LAS attribue 1.0 / 0.5 / 0.2 / 0.0 selon le nombre d’erreurs.",
-    "evidence": [{"page": 1, "excerpt": "Nombre d’erreurs: 0→1.0 ; 1→0.5 ; 2→0.2 ; ≥3→0.0"}]
+    "explanation": "Le bareme LAS attribue 1.0 / 0.5 / 0.2 / 0.0 selon le nombre d'erreurs.",
+    "evidence": [{"page": 1, "excerpt": "Nombre d'erreurs: 0->1.0 ; 1->0.5 ; 2->0.2 ; >=3->0.0"}]
   },
   {
     "type": "tf",
-    "question": "Concernant la structure des questions, chaque item A→E doit être présent.",
+    "question": "Concernant la structure des questions, chaque item A->E doit etre present.",
     "items": [
-      "A Une question multi comporte 5 propositions A→E.",
-      "B Une question multi peut avoir 1 à 5 bonnes réponses.",
-      "C Une question V/F a 5 items A→E.",
+      "A Une question multi comporte 5 propositions A->E.",
+      "B Une question multi peut avoir 1 a 5 bonnes reponses.",
+      "C Une question V/F a 5 items A->E.",
       "D La plateforme accepte moins de 5 items pour V/F.",
-      "E Le format impose une réponse JSON stricte."
+      "E Le format impose une reponse JSON stricte."
     ],
     "truth": [true,true,true,false,true],
     "explanation": "Le format impose 5 options/items et une structure JSON stricte.",
@@ -765,7 +776,7 @@ function init() {
   renderSetup();
 
   if (restored) {
-    setMsg($("setupMsg"), "ok", `✅ Reprise auto : ${state.questions.length} questions en mémoire.`);
+    setMsg($("setupMsg"), "ok", `Reprise auto : ${state.questions.length} questions en memoire.`);
   }
 
   // steps nav
@@ -783,22 +794,32 @@ function init() {
       document.querySelectorAll(".seg").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       state.mode = btn.dataset.mode;
+      if (state.mode !== "exam") {
+        stopTimer();
+      } else if (state.timerEnabled && !$("view-quiz").classList.contains("hidden")) {
+        startTimer();
+      }
+      updateTimerDisplay();
       autosaveMaybe();
-      setMsg($("setupMsg"), "ok", `Mode réglé sur : ${state.mode === "exam" ? "Examen" : "Entraînement"}.`);
+      setMsg($("setupMsg"), "ok", `Mode regle sur : ${state.mode === "exam" ? "Examen" : "Entrainement"}.`);
     });
   });
 
-  // autosave toggle
-  $("autosaveToggle").addEventListener("change", (e) => {
-    state.autosave = e.target.checked;
-    if (!state.autosave) localStorage.removeItem(STORAGE_KEY);
-    else autosaveMaybe();
+  $("timerToggle").addEventListener("change", (e) => {
+    state.timerEnabled = e.target.checked;
+    if (!state.timerEnabled) {
+      stopTimer();
+    } else if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
+      startTimer();
+    }
+    updateTimerDisplay();
+    autosaveMaybe();
   });
 
   // copy prompt
   $("btnCopyPrompt").addEventListener("click", async () => {
     await navigator.clipboard.writeText(PROMPT_TEXT);
-    setMsg($("setupMsg"), "ok", "✅ Prompt copié. Colle-le dans ChatGPT.");
+    setMsg($("setupMsg"), "ok", "Prompt copie. Colle-le dans ChatGPT.");
   });
 
   // load JSON from textarea
@@ -841,7 +862,6 @@ function init() {
     renderQuiz();
   });
   $("btnFinish").addEventListener("click", () => {
-    stopExamTimer();
     state.finished = true;
     autosaveMaybe();
     goStep("results");
@@ -899,7 +919,7 @@ function init() {
     // FIX: fermer la modale quoi qu'il arrive au chargement
   hideModal();
 
-  // FIX: touche Échap pour fermer la modale si elle s'affiche
+  // FIX: touche Echap pour fermer la modale si elle s'affiche
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") hideModal();
   });

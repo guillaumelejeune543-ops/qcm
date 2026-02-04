@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QCM LAS — Plateforme</title>
+  <meta name="description" content="Plateforme gratuite QCM LAS : import JSON, passage interactif, barème LAS, correction et note sur 20." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">🩺</div>
+      <div>
+        <div class="title">QCM LAS</div>
+        <div class="subtitle">Examen interactif • Barème LAS • Correction</div>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button id="btnTheme" class="btn btn-ghost" title="Thème">
+        <span class="icon">🌙</span><span class="hide-sm">Thème</span>
+      </button>
+      <button id="btnResetAll" class="btn btn-ghost" title="Réinitialiser">
+        <span class="icon">🧹</span><span class="hide-sm">Reset</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- STEP NAV -->
+    <nav class="steps">
+      <button class="step active" data-step="setup">1) Charger</button>
+      <button class="step" data-step="quiz">2) QCM</button>
+      <button class="step" data-step="results">3) Résultats</button>
+    </nav>
+
+    <!-- SETUP -->
+    <section id="view-setup" class="card view">
+      <div class="card-header">
+        <h2>Charger un QCM (JSON)</h2>
+        <p class="muted">
+          Génère ton JSON avec ChatGPT Pro (format strict), puis colle-le ici ou importe un fichier .json.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <label class="label">Coller le JSON</label>
+          <textarea id="jsonInput" class="textarea" placeholder='[{"type":"multi","question":"...","options":["A ...","B ...","C ...","D ...","E ..."],"answer_indices":[1,3],"explanation":"..."}]'></textarea>
+
+          <div class="row">
+            <button id="btnLoadJson" class="btn btn-primary">📥 Charger le QCM</button>
+
+            <label class="btn btn-secondary file-btn">
+              📄 Importer .json
+              <input id="fileInput" type="file" accept="application/json" />
+            </label>
+
+            <button id="btnDemo" class="btn btn-ghost">✨ Charger un exemple</button>
+          </div>
+
+          <div id="setupMsg" class="msg" aria-live="polite"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Paramètres</h3>
+
+          <div class="field">
+            <label class="label">Mode</label>
+            <div class="segmented">
+              <button class="seg active" data-mode="exam">Examen</button>
+              <button class="seg" data-mode="train">Entraînement</button>
+            </div>
+            <p class="hint">
+              Examen : correction complète à la fin. Entraînement : correction après validation.
+            </p>
+          </div>
+
+          <div class="field">
+            <label class="label">Barème LAS</label>
+            <div class="badge-row">
+              <span class="badge">0 erreur → 1.0</span>
+              <span class="badge">1 erreur → 0.5</span>
+              <span class="badge">2 erreurs → 0.2</span>
+              <span class="badge">≥ 3 erreurs → 0.0</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="label">Sauvegarde automatique</label>
+            <div class="toggle">
+              <input id="autosaveToggle" type="checkbox" checked />
+              <label for="autosaveToggle">Reprendre plus tard sur ce navigateur</label>
+            </div>
+            <p class="hint">
+              (Astuce : sur iPad, ajoute la page à l’écran d’accueil pour une expérience “app”.)
+            </p>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3>Prompt ChatGPT prêt à copier</h3>
+          <button id="btnCopyPrompt" class="btn btn-secondary">📋 Copier le prompt</button>
+          <pre id="promptBox" class="pre"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUIZ -->
+    <section id="view-quiz" class="card view hidden">
+      <div class="card-header">
+        <div>
+          <h2>Passage du QCM</h2>
+          <p class="muted" id="quizMeta"></p>
+        </div>
+        <div class="quiz-tools">
+          <button id="btnFlag" class="btn btn-ghost" title="Marquer à revoir">⭐ <span class="hide-sm">À revoir</span></button>
+          <button id="btnReview" class="btn btn-ghost" title="Liste des questions">📚 <span class="hide-sm">Liste</span></button>
+        </div>
+      </div>
+
+      <div class="progress">
+        <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+        <div class="progress-text"><span id="progressText"></span></div>
+      </div>
+
+      <div id="questionCard" class="question"></div>
+
+      <div class="row space-between">
+        <button id="btnPrev" class="btn btn-secondary">⬅️ Précédente</button>
+
+        <div class="row">
+          <button id="btnValidate" class="btn btn-primary">✅ Valider</button>
+          <button id="btnNext" class="btn btn-secondary">➡️ Suivante</button>
+          <button id="btnFinish" class="btn btn-ghost">🏁 Terminer</button>
+        </div>
+      </div>
+
+      <div id="quizMsg" class="msg" aria-live="polite"></div>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="view-results" class="card view hidden">
+      <div class="card-header">
+        <div>
+          <h2>Résultats</h2>
+          <p class="muted">Note LAS /20 + correction détaillée</p>
+        </div>
+        <div class="row">
+          <button id="btnExportResults" class="btn btn-secondary">⬇️ Export résultats</button>
+          <button id="btnBackToSetup" class="btn btn-ghost">↩️ Nouveau QCM</button>
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Score moyen (0→1)</div>
+          <div class="metric-value" id="metricMean">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Note /20</div>
+          <div class="metric-value" id="metric20">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Questions validées</div>
+          <div class="metric-value" id="metricDone">—</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Marquées ⭐</div>
+          <div class="metric-value" id="metricFlag">—</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row space-between">
+        <div class="row">
+          <button id="btnShowAll" class="btn btn-secondary">📄 Tout afficher</button>
+          <button id="btnShowWrong" class="btn btn-secondary">❌ Erreurs</button>
+          <button id="btnShowFlag" class="btn btn-secondary">⭐ Marquées</button>
+        </div>
+        <div class="hint">Clique une question pour déplier l’explication + preuves</div>
+      </div>
+
+      <div id="resultsList" class="results"></div>
+    </section>
+
+    <!-- MODAL -->
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title" id="modalTitle">Questions</div>
+          <button id="modalClose" class="btn btn-ghost">✖</button>
+        </div>
+        <div id="modalBody" class="modal-body"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <span class="muted">Plateforme QCM LAS — gratuite — fonctionne hors-ligne une fois chargée</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

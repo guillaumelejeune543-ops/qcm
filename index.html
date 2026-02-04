@@ -10,6 +10,26 @@
 </head>
 
 <body>
+<div id="authGate" class="auth-gate hidden">
+  <div class="auth-gate-card">
+    <h2>Connexion requise</h2>
+    <p class="muted">Cree un compte ou connecte-toi pour acceder au site.</p>
+    <div class="auth-row">
+      <label class="label">Email</label>
+      <input id="gateEmail" class="input" type="email" placeholder="email@exemple.com" />
+    </div>
+    <div class="auth-row">
+      <label class="label">Mot de passe</label>
+      <input id="gatePassword" class="input" type="password" placeholder="Mot de passe" />
+    </div>
+    <div class="row">
+      <button id="btnGateSignUp" class="btn btn-secondary">Creer un compte</button>
+      <button id="btnGateSignIn" class="btn btn-primary">Se connecter</button>
+      <button id="btnGateReset" class="btn btn-ghost">Mot de passe oublie</button>
+    </div>
+    <div id="gateStatus" class="msg"></div>
+  </div>
+</div>
 <header class="topbar">
   <div class="brand">
     <div class="logo">Q</div>

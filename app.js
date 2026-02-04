@@ -212,12 +212,49 @@ function setAuthStatus(type, text) {
   setMsg(el, type, text);
 }
 
+function setGateStatus(type, text) {
+  const el = $("gateStatus");
+  if (!el) return;
+  if (!text) return clearMsg(el);
+  setMsg(el, type, text);
+}
+
 function renderAuth(user) {
   state.user = user || null;
   const email = $("authUser");
   if (email) email.textContent = user ? `Connecte: ${user.email}` : "Non connecte";
   const outBtn = $("btnSignOut");
   if (outBtn) outBtn.style.display = user ? "" : "none";
+  const gate = $("authGate");
+  if (gate) gate.classList.toggle("hidden", !!user);
+  document.body.classList.toggle("auth-locked", !user);
+}
+
+async function signUpWith(email, password, statusFn) {
+  if (!email || !password) return statusFn("warn", "Email et mot de passe requis.");
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: window.location.href }
+  });
+  if (error) return statusFn("err", error.message);
+  statusFn("ok", "Compte cree. Verifie tes emails.");
+}
+
+async function signInWith(email, password, statusFn) {
+  if (!email || !password) return statusFn("warn", "Email et mot de passe requis.");
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return statusFn("err", error.message);
+  statusFn("ok", "Connecte.");
+}
+
+async function resetWith(email, statusFn) {
+  if (!email) return statusFn("warn", "Entre ton email.");
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  });
+  if (error) return statusFn("err", error.message);
+  statusFn("ok", "Email de reinitialisation envoye.");
 }
 
 async function saveRunIfAuthed() {
@@ -884,38 +921,39 @@ function init() {
   $("btnSignUp").addEventListener("click", async () => {
     const email = $("authEmail").value.trim();
     const password = $("authPassword").value;
-    if (!email || !password) return setAuthStatus("warn", "Email et mot de passe requis.");
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: window.location.href }
-    });
-    if (error) return setAuthStatus("err", error.message);
-    setAuthStatus("ok", "Compte cree. Verifie tes emails.");
+    await signUpWith(email, password, setAuthStatus);
   });
 
   $("btnSignIn").addEventListener("click", async () => {
     const email = $("authEmail").value.trim();
     const password = $("authPassword").value;
-    if (!email || !password) return setAuthStatus("warn", "Email et mot de passe requis.");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return setAuthStatus("err", error.message);
-    setAuthStatus("ok", "Connecte.");
+    await signInWith(email, password, setAuthStatus);
   });
 
   $("btnResetPwd").addEventListener("click", async () => {
     const email = $("authEmail").value.trim();
-    if (!email) return setAuthStatus("warn", "Entre ton email.");
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.href
-    });
-    if (error) return setAuthStatus("err", error.message);
-    setAuthStatus("ok", "Email de reinitialisation envoye.");
+    await resetWith(email, setAuthStatus);
   });
 
   $("btnSignOut").addEventListener("click", async () => {
     await supabase.auth.signOut();
     setAuthStatus("ok", "Deconnecte.");
+  });
+
+  // gate buttons
+  $("btnGateSignUp").addEventListener("click", async () => {
+    const email = $("gateEmail").value.trim();
+    const password = $("gatePassword").value;
+    await signUpWith(email, password, setGateStatus);
+  });
+  $("btnGateSignIn").addEventListener("click", async () => {
+    const email = $("gateEmail").value.trim();
+    const password = $("gatePassword").value;
+    await signInWith(email, password, setGateStatus);
+  });
+  $("btnGateReset").addEventListener("click", async () => {
+    const email = $("gateEmail").value.trim();
+    await resetWith(email, setGateStatus);
   });
 
   // steps nav

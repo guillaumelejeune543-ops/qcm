@@ -408,6 +408,34 @@ h3{margin:0 0 10px; font-family:"Prata","Times New Roman",serif; letter-spacing:
 .auth-row{display:flex; flex-direction:column; gap:6px}
 .auth-session{display:flex; align-items:center; justify-content:space-between; gap:10px}
 
+.auth-gate{
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,.45);
+  display:grid;
+  place-items:center;
+  z-index: 999;
+  backdrop-filter: blur(6px);
+}
+.auth-gate-card{
+  width:min(520px, 92vw);
+  border-radius: 18px;
+  border:1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+.auth-gate.hidden{display:none}
+
+/* Blur page when gate is visible */
+body.auth-locked main,
+body.auth-locked header,
+body.auth-locked footer{
+  filter: blur(6px);
+  pointer-events:none;
+  user-select:none;
+}
+
 .segmented{
   display:inline-flex;
   gap:6px;

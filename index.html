@@ -1,10 +1,22 @@
 ﻿<!doctype html>
-<html lang="fr" data-accent="rosesalmon">
+<html lang="fr">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>QCM LAS &mdash; Plateforme</title>
   <meta name="description" content="Plateforme gratuite QCM LAS : import JSON, passage interactif, barème LAS, correction et note sur 20." />
+  <script>
+    (function(){
+      try{
+        var theme = localStorage.getItem("qcm_pref_theme");
+        var accent = localStorage.getItem("qcm_pref_accent");
+        var nextTheme = theme || "light";
+        var nextAccent = accent || "rosesalmon";
+        if (nextTheme === "light") document.documentElement.setAttribute("data-theme","light");
+        if (nextAccent) document.documentElement.setAttribute("data-accent", nextAccent);
+      }catch(e){}
+    })();
+  </script>
   <!-- Anti-cache v9 -->
   <link rel="stylesheet" href="styles.css?v=9" />
 </head>
@@ -170,6 +182,17 @@
           <li>Ajoute a la fin : "Genere X questions" (remplace X).</li>
           <li>Copie le JSON genere et colle-le ici, ou importe le fichier .json.</li>
         </ol>
+      </div>
+
+      <div class="notice">
+        <div class="notice-title">Mes PDFs</div>
+        <div class="row" style="margin-top:8px;">
+          <label class="btn btn-secondary file-btn">Importer PDF
+            <input id="pdfInput" type="file" accept="application/pdf" />
+          </label>
+        </div>
+        <div id="pdfMsg" class="msg"></div>
+        <div id="pdfList" class="file-list"></div>
       </div>
 
       <div id="setupMsg" class="msg"></div>

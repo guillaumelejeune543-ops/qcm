@@ -18,6 +18,8 @@ var supabaseClient = window.supabaseClient || (window.supabaseClient = window.su
   }
 ));
 
+const FILES_BUCKET = "pdfs";
+
 let prefsTimer = null;
 function saveUserPrefs(prefs) {
   if (!state.user) return;
@@ -32,6 +34,116 @@ function saveUserPrefs(prefs) {
     };
     await supabaseClient.auth.updateUser({ data: next });
   }, 400);
+}
+
+function fmtBytes(bytes) {
+  if (!Number.isFinite(bytes)) return "-";
+  const sizes = ["B","KB","MB","GB"];
+  const i = Math.min(sizes.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + " " + sizes[i];
+}
+
+function openPdfInModal(url, name) {
+  const wrap = document.createElement("div");
+  wrap.className = "pdf-viewer";
+  const iframe = document.createElement("iframe");
+  iframe.src = url;
+  iframe.title = name || "PDF";
+  iframe.loading = "lazy";
+  wrap.appendChild(iframe);
+  showModal(name || "PDF", wrap);
+}
+
+async function listUserPdfs() {
+  const list = $("pdfList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!state.user) return;
+
+  const { data, error } = await supabaseClient
+    .storage
+    .from(FILES_BUCKET)
+    .list(state.user.id, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
+
+  if (error) {
+    setMsg($("pdfMsg"), "err", "Impossible de lister les fichiers.");
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "Aucun PDF pour le moment.";
+    list.appendChild(empty);
+    return;
+  }
+
+  data.forEach(file => {
+    const item = document.createElement("div");
+    item.className = "file-item";
+
+    const meta = document.createElement("div");
+    meta.className = "file-meta";
+    meta.innerHTML = `
+      <div class="file-name">${file.name}</div>
+      <div class="file-sub">${file.created_at ? new Date(file.created_at).toLocaleString("fr-FR") : ""} · ${fmtBytes(file.metadata?.size)}</div>
+    `;
+
+    const actions = document.createElement("div");
+    actions.className = "file-actions";
+
+    const btn = document.createElement("button");
+    btn.className = "btn btn-ghost";
+    btn.textContent = "Ouvrir";
+    btn.addEventListener("click", async () => {
+      const { data: urlData, error: urlErr } = await supabaseClient
+        .storage
+        .from(FILES_BUCKET)
+        .createSignedUrl(`${state.user.id}/${file.name}`, 60);
+      if (urlErr) return setMsg($("pdfMsg"), "err", "Lien temporaire impossible.");
+      openPdfInModal(urlData.signedUrl, file.name);
+    });
+
+    const del = document.createElement("button");
+    del.className = "btn btn-ghost";
+    del.textContent = "Supprimer";
+    del.addEventListener("click", async () => {
+      if (!confirm("Supprimer ce PDF ?")) return;
+      const { error: delErr } = await supabaseClient
+        .storage
+        .from(FILES_BUCKET)
+        .remove([`${state.user.id}/${file.name}`]);
+      if (delErr) return setMsg($("pdfMsg"), "err", "Suppression impossible.");
+      hideModal();
+      item.remove();
+      setMsg($("pdfMsg"), "ok", "PDF supprimé.");
+      await listUserPdfs();
+    });
+
+    actions.appendChild(btn);
+    actions.appendChild(del);
+    item.appendChild(meta);
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
+}
+
+async function uploadPdf(file) {
+  if (!state.user) return setMsg($("pdfMsg"), "warn", "Connecte-toi d'abord.");
+  if (!file || file.type !== "application/pdf") {
+    return setMsg($("pdfMsg"), "warn", "Choisis un fichier PDF.");
+  }
+  const key = `${state.user.id}/${file.name}`;
+  const { error } = await supabaseClient
+    .storage
+    .from(FILES_BUCKET)
+    .upload(key, file, { contentType: "application/pdf", upsert: false });
+  if (error) {
+    console.error("Upload PDF error:", error);
+    return setMsg($("pdfMsg"), "err", error.message || "Upload impossible.");
+  }
+  setMsg($("pdfMsg"), "ok", "PDF uploadé.");
+  await listUserPdfs();
 }
 
 function setAuthStatus(type, text) {
@@ -90,15 +202,21 @@ function renderAuth(user) {
     if (meta.pref_theme && meta.pref_theme !== state.theme) {
       state.theme = meta.pref_theme;
       setTheme(meta.pref_theme);
+      try { localStorage.setItem("qcm_pref_theme", meta.pref_theme); } catch {}
     }
     if (meta.pref_accent && meta.pref_accent !== state.accent) {
       state.accent = meta.pref_accent;
       setAccent(meta.pref_accent);
+      try { localStorage.setItem("qcm_pref_accent", meta.pref_accent); } catch {}
     }
   }
 
   const locked = !user || mustProfile;
   document.body.classList.toggle("auth-locked", locked);
+
+  if (user) {
+    listUserPdfs();
+  }
 }
 
 async function signUpWith(email, password, meta, statusFn) {

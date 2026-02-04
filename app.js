@@ -151,6 +151,7 @@ function setTheme(next) {
     document.documentElement.removeAttribute("data-theme");
     $("btnTheme").querySelector(".icon").textContent = "Sombre";
   }
+  try { localStorage.setItem("qcm_pref_theme", next); } catch {}
   saveUserPrefs({ pref_theme: next });
 }
 
@@ -160,6 +161,7 @@ function setAccent(next) {
   document.querySelectorAll(".accent-item").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.accent === next);
   });
+  try { localStorage.setItem("qcm_pref_accent", next); } catch {}
   saveUserPrefs({ pref_accent: next });
 }
 
@@ -792,6 +794,12 @@ function init() {
   if (btnStats) btnStats.addEventListener("click", () => {
     $("accountMenu").classList.add("hidden");
     openStats(30);
+  });
+  const pdfInput = $("pdfInput");
+  if (pdfInput) pdfInput.addEventListener("change", async () => {
+    const file = pdfInput.files?.[0];
+    await uploadPdf(file);
+    pdfInput.value = "";
   });
 
   // gate buttons

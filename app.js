@@ -83,12 +83,11 @@ function formatTime(sec) {
 function updateTimerDisplay() {
   const el = $("timerDisplay");
   if (!el) return;
-  const prefix = "Temps ";
   if (state.mode !== "exam" || !state.timerEnabled || !state.questions.length) {
-    el.textContent = prefix + "--:--";
+    el.textContent = "--:--";
     return;
   }
-  el.textContent = prefix + formatTime(state.timerRemainingSec);
+  el.textContent = formatTime(state.timerRemainingSec);
 }
 
 function initTimerForQuestions() {
@@ -99,6 +98,7 @@ function initTimerForQuestions() {
   state.timerLastSave = 0;
   updateTimerDisplay();
 }
+
 
 function stopTimer() {
   if (timerInterval) {
@@ -214,6 +214,7 @@ function goStep(step) {
     renderQuiz();
     if (state.mode === "exam" && state.timerEnabled) startTimer();
     else stopTimer();
+    
   } else {
     stopTimer();
   }
@@ -407,6 +408,10 @@ function renderQuiz() {
       const row = document.createElement("label");
       row.className = "choice";
 
+      const letter = document.createElement("div");
+      letter.className = "choice-letter";
+      letter.textContent = opt.slice(0, 1);
+
       const cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = chosen.has(i);
@@ -417,8 +422,10 @@ function renderQuiz() {
       });
 
       const txt = document.createElement("div");
-      txt.textContent = opt;
+      txt.className = "choice-text";
+      txt.textContent = opt.slice(2);
 
+      row.appendChild(letter);
       row.appendChild(cb);
       row.appendChild(txt);
       card.appendChild(row);

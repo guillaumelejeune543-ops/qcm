@@ -537,6 +537,7 @@ h3{margin:0 0 10px; font-family:"Prata","Times New Roman",serif; letter-spacing:
 }
 .progress-text{margin-top:8px; color: var(--muted); font-size: 12px}
 
+.quiz-tools{display:flex; gap:10px}
 .question{margin: 0 16px; padding: 14px; border-radius: 18px; border:1px solid var(--border); background: var(--surface)}
 .train-correction{
   margin: 12px 16px 0;
@@ -592,6 +593,12 @@ h3{margin:0 0 10px; font-family:"Prata","Times New Roman",serif; letter-spacing:
   background: rgba(255,255,255,.04);
   margin-bottom: 10px;
 }
+.choice-letter{
+  font-weight:800;
+  min-width: 20px;
+  text-align:center;
+}
+.choice-text{flex:1}
 .choice input{margin-top: 2px; transform: scale(1.1)}
 .choice:hover{border-color: rgba(255,255,255,.2)}
 
@@ -620,6 +627,12 @@ h3{margin:0 0 10px; font-family:"Prata","Times New Roman",serif; letter-spacing:
 }
 
 .quiz-tools{display:flex; gap:10px}
+#timerDisplay{
+  font-weight:800;
+  font-size: 16px;
+  padding: 8px 14px;
+  letter-spacing: .5px;
+}
 
 .metrics{
   display:grid;

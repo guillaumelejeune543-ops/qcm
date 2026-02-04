@@ -1,5 +1,5 @@
 ﻿<!doctype html>
-<html lang="fr" data-accent="salmon">
+<html lang="fr" data-accent="rosesalmon">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -20,11 +20,20 @@
   </div>
 
   <div class="topbar-actions">
-    <div class="theme-grid topbar-themes">
-      <button class="theme-chip active" data-accent="salmon" title="Saumon">Saumon</button>
-      <button class="theme-chip" data-accent="rose" title="Rose">Rose</button>
-      <button class="theme-chip" data-accent="blue" title="Bleu">Bleu</button>
-      <button class="theme-chip" data-accent="green" title="Vert pale">Vert pale</button>
+    <div class="theme-menu">
+      <button id="btnAccent" class="btn btn-ghost">Theme</button>
+      <div id="accentMenu" class="accent-menu hidden">
+        <button class="accent-item" data-accent="rosesalmon">Rose saumon</button>
+        <button class="accent-item" data-accent="blue">Bleu</button>
+        <button class="accent-item" data-accent="green">Vert pale</button>
+        <button class="accent-item" data-accent="lilac">Lilas</button>
+        <button class="accent-item" data-accent="mint">Menthe</button>
+        <button class="accent-item" data-accent="amber">Ambre</button>
+        <button class="accent-item" data-accent="slate">Ardoise</button>
+        <button class="accent-item" data-accent="chocolate">Chocolat</button>
+        <button class="accent-item" data-accent="turquoise">Turquoise</button>
+        <button class="accent-item" data-accent="sand">Sable</button>
+      </div>
     </div>
     <button id="btnTheme" class="btn btn-ghost">
       <span class="icon">Theme</span>

@@ -10,7 +10,7 @@ const state = {
   timerEnabled: true,
   timerPerQuestion: 90,
   timerTotalSec: 0,
-  accent: "salmon",
+  accent: "rosesalmon",
   timerRemainingSec: 0,
   timerRunning: false,
   timerLastTick: null,
@@ -167,13 +167,10 @@ function setTheme(next) {
 function setAccent(next) {
   state.accent = next;
   const root = document.documentElement;
-  root.classList.add("accent-swap");
   document.documentElement.setAttribute("data-accent", next);
-  document.querySelectorAll(".theme-chip").forEach(btn => {
+  document.querySelectorAll(".accent-item").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.accent === next);
   });
-  clearTimeout(setAccent._t);
-  setAccent._t = setTimeout(() => root.classList.remove("accent-swap"), 200);
 }
 
 function autosaveMaybe() {
@@ -341,7 +338,7 @@ function renderSetup() {
     btn.classList.toggle("active", btn.dataset.mode === state.mode);
   });
 
-  setAccent(state.accent || "salmon");
+  setAccent(state.accent || "rosesalmon");
   $("timerToggle").checked = state.timerEnabled;
   $("timerPerQuestion").value = String(state.timerPerQuestion || 90);
   if (state.theme === "light") setTheme("light"); else setTheme("dark");
@@ -856,11 +853,21 @@ function init() {
     });
   });
 
-  // accent theme
-  document.querySelectorAll(".theme-chip").forEach(btn => {
+  // accent theme menu
+  $("btnAccent").addEventListener("click", (e) => {
+    e.stopPropagation();
+    $("accentMenu").classList.toggle("hidden");
+  });
+  document.querySelectorAll(".accent-item").forEach(btn => {
     btn.addEventListener("click", () => {
-      setAccent(btn.dataset.accent || "salmon");
+      setAccent(btn.dataset.accent || "rosesalmon");
+      $("accentMenu").classList.add("hidden");
     });
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".theme-menu")) {
+      $("accentMenu").classList.add("hidden");
+    }
   });
 
   $("timerToggle").addEventListener("change", (e) => {

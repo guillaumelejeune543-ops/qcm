@@ -166,10 +166,14 @@ function setTheme(next) {
 
 function setAccent(next) {
   state.accent = next;
+  const root = document.documentElement;
+  root.classList.add("accent-swap");
   document.documentElement.setAttribute("data-accent", next);
   document.querySelectorAll(".theme-chip").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.accent === next);
   });
+  clearTimeout(setAccent._t);
+  setAccent._t = setTimeout(() => root.classList.remove("accent-swap"), 200);
 }
 
 function autosaveMaybe() {

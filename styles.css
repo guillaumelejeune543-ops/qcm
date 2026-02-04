@@ -21,7 +21,7 @@
 }
 
 [data-theme="light"]{
-  --bg:#ffd9cf;
+  --bg:#fff2ee;
   --bg-grad: linear-gradient(160deg, var(--accent-1) 0%, var(--accent-2) 55%, var(--accent-3) 100%);
   --card:rgba(255,255,255,.96);
   --surface:rgba(255,255,255,.9);
@@ -46,10 +46,7 @@ body{
   margin:0;
   font-family:"Karla","Segoe UI",Arial,sans-serif;
   color:var(--text);
-  background: var(--bg-grad), var(--bg);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
-  background-size: cover;
+  background: transparent;
 }
 
 /* Hide scrollbars but keep scrolling */
@@ -72,6 +69,7 @@ html, body, .modal-content, .pre, .details pre {
   --accent-1: rgba(240,127,121,.36);
   --accent-2: rgba(255,206,192,.36);
   --accent-3: rgba(255,230,214,.34);
+  --bg:#ffd9cf;
 }
 [data-accent="rose"]{
   --primary:#e45e98;
@@ -86,6 +84,7 @@ html, body, .modal-content, .pre, .details pre {
   --accent-1: rgba(228,94,152,.34);
   --accent-2: rgba(255,200,221,.34);
   --accent-3: rgba(255,227,214,.30);
+  --bg:#ffeaf2;
 }
 [data-accent="blue"]{
   --primary:#6b9df5;
@@ -100,6 +99,7 @@ html, body, .modal-content, .pre, .details pre {
   --accent-1: rgba(79,131,230,.30);
   --accent-2: rgba(173,205,255,.30);
   --accent-3: rgba(214,232,255,.28);
+  --bg:#eef4ff;
 }
 [data-accent="green"]{
   --primary:#5fbf9a;
@@ -114,6 +114,7 @@ html, body, .modal-content, .pre, .details pre {
   --accent-1: rgba(79,170,134,.30);
   --accent-2: rgba(176,233,210,.30);
   --accent-3: rgba(214,245,233,.28);
+  --bg:#eefaf4;
 }
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
@@ -124,30 +125,16 @@ body::-webkit-scrollbar,
   height: 0;
 }
 
-body::before{
-  content:"";
-  position:fixed;
-  inset:0;
+html{
   background:
     radial-gradient(60vmax 45vmax at 12% 8%, var(--accent-1), transparent 60%),
     radial-gradient(55vmax 40vmax at 85% 10%, var(--accent-2), transparent 60%),
-    radial-gradient(70vmax 55vmax at 50% 90%, var(--accent-3), transparent 60%);
-  z-index:-1;
-  pointer-events:none;
-}
-
-body::after{
-  content:"";
-  position:fixed;
-  inset:0;
-  background:
-    linear-gradient(180deg,
-      transparent 0%,
-      transparent 65%,
-      rgba(0,0,0,.08) 80%,
-      rgba(0,0,0,.18) 100%);
-  z-index:-2;
-  pointer-events:none;
+    radial-gradient(70vmax 55vmax at 50% 90%, var(--accent-3), transparent 60%),
+    var(--bg-grad),
+    var(--bg);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .topbar{

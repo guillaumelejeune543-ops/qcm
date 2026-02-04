@@ -227,6 +227,19 @@ html{
   background-size: cover;
 }
 
+/* iOS/Safari tweaks (no impact on desktop) */
+@supports (-webkit-touch-callout: none) {
+  .topbar{
+    backdrop-filter: none;
+  }
+  html{
+    background-attachment: scroll;
+  }
+  #btnFullscreen{
+    display: none;
+  }
+}
+
 .topbar{
   position: sticky;
   top: 0;
@@ -235,6 +248,7 @@ html{
   justify-content:space-between;
   align-items:center;
   padding: 14px 18px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
   border-bottom:1px solid var(--border);
   background: var(--surface);
   backdrop-filter: blur(10px);

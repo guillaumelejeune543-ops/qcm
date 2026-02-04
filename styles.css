@@ -360,5 +360,10 @@ h3{margin:0 0 10px}
 .qbtn.done{border-color: rgba(125,247,167,.35)}
 .qbtn.flag{border-color: rgba(255,204,102,.45)}
 .qbtn.current{outline: 2px solid rgba(93,169,255,.6)}
-/* FIX URGENT : désactive la modale "Questions" si JS ne tourne pas */
+
+/* -----------------------------
+   FIX v5 : on force la modale cachée
+   (utile si JS ne tourne pas)
+------------------------------ */
 #modal { display: none !important; }
+#modal.hidden { display: none !important; }

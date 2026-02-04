@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>QCM LAS &mdash; Plateforme</title>
   <meta name="description" content="Plateforme gratuite QCM LAS : import JSON, passage interactif, barème LAS, correction et note sur 20." />
-  <!-- Anti-cache v8 -->
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <!-- Anti-cache v9 -->
+  <link rel="stylesheet" href="styles.css?v=9" />
 </head>
 
 <body>
@@ -116,6 +116,9 @@
     <button id="btnTheme" class="btn btn-ghost">
       <span class="icon">Theme</span>
     </button>
+    <button id="btnFullscreen" class="btn btn-ghost icon-btn" title="Plein ecran" aria-label="Plein ecran">
+      <span class="icon icon-svg" aria-hidden="true"></span>
+    </button>
   </div>
 </header>
 
@@ -123,6 +126,7 @@
   <div class="account-title">Compte</div>
   <div id="authUser" class="muted">Non connecte</div>
   <div class="row" style="margin-top:8px;">
+    <button id="btnStats" class="btn btn-secondary">Stats</button>
     <button id="btnHistory" class="btn btn-secondary">Historique QCM</button>
     <button id="btnSignOut" class="btn btn-ghost">Se deconnecter</button>
   </div>
@@ -130,12 +134,6 @@
 
 <main class="container">
 
-<!-- STEPS -->
-<nav class="steps">
-  <button class="step active" data-step="setup">1) Charger</button>
-  <button class="step" data-step="quiz">2) QCM</button>
-  <button class="step" data-step="results">3) Résultats</button>
-</nav>
 
 <!-- SETUP -->
 <section id="view-setup" class="card view">
@@ -278,6 +276,14 @@
       <div class="metric-label">Marquées</div>
       <div class="metric-value" id="metricFlag">&mdash;</div>
     </div>
+    <div class="metric">
+      <div class="metric-label">Temps total</div>
+      <div class="metric-value" id="metricTimeTotal">&mdash;</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Temps / question</div>
+      <div class="metric-value" id="metricTimeAvg">&mdash;</div>
+    </div>
   </div>
 
   <div class="row space-between" style="padding: 12px 16px 0;">
@@ -294,6 +300,7 @@
   <div class="row">
     <button id="btnRestartAll" class="btn btn-primary">Recommencer tout le QCM</button>
     <button id="btnRestartWrong" class="btn btn-secondary">Recommencer les erreurs</button>
+    <button id="btnRestartFlagged" class="btn btn-secondary">Recommencer les marquées</button>
     <button id="btnBackToSetup" class="btn btn-secondary">Nouveau QCM</button>
   </div>
 </section>
@@ -313,11 +320,11 @@
 
 
 
-<!-- Anti-cache v8 -->
+<!-- Anti-cache v9 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="ui.js?v=8"></script>
-<script src="auth.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="ui.js?v=9"></script>
+<script src="auth.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
 

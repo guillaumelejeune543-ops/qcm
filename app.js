@@ -14,6 +14,8 @@ const state = {
   timerRemainingSec: 0,
   timerRunning: false,
   timerLastTick: null,
+  quizStartedAt: null,
+  quizEndedAt: null,
   questions: [],
   current: 0,
   answers: {},          // {idx: {type, payload}}
@@ -87,6 +89,8 @@ function initTimerForQuestions() {
   state.timerRemainingSec = state.timerTotalSec;
   state.timerRunning = false;
   state.timerLastTick = null;
+  state.quizStartedAt = null;
+  state.quizEndedAt = null;
   updateTimerDisplay();
 }
 
@@ -147,6 +151,7 @@ function setTheme(next) {
     document.documentElement.removeAttribute("data-theme");
     $("btnTheme").querySelector(".icon").textContent = "Sombre";
   }
+  saveUserPrefs({ pref_theme: next });
 }
 
 function setAccent(next) {
@@ -155,15 +160,11 @@ function setAccent(next) {
   document.querySelectorAll(".accent-item").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.accent === next);
   });
+  saveUserPrefs({ pref_accent: next });
 }
 
 
 function goStep(step) {
-  // step buttons
-  document.querySelectorAll(".step").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.step === step);
-  });
-
   // views
   $("view-setup").classList.toggle("hidden", step !== "setup");
   $("view-quiz").classList.toggle("hidden", step !== "quiz");
@@ -171,6 +172,7 @@ function goStep(step) {
 
   if (step === "quiz") {
     renderQuiz();
+    if (!state.quizStartedAt) state.quizStartedAt = Date.now();
     if (state.mode === "exam" && state.timerEnabled) startTimer();
     else stopTimer();
     
@@ -267,6 +269,8 @@ function loadQuestionsFromJsonText(text) {
     state.validated = {};
     state.flagged = new Set();
     state.finished = false;
+    state.quizStartedAt = null;
+    state.quizEndedAt = null;
     const inputTitle = ($("qcmTitleInput")?.value || "").trim();
     state.qcmTitle = inputTitle || titleFromJson || "QCM";
     initTimerForQuestions();
@@ -456,8 +460,18 @@ function renderQuiz() {
     }
   }
 
-  $("btnPrev").disabled = idx === 0;
-  $("btnNext").disabled = idx === state.questions.length - 1;
+  const atStart = idx === 0;
+  const atEnd = idx === state.questions.length - 1;
+  const prevBtn = $("btnPrev");
+  const nextBtn = $("btnNext");
+  if (prevBtn) {
+    prevBtn.disabled = atStart;
+    prevBtn.classList.toggle("hidden", atStart);
+  }
+  if (nextBtn) {
+    nextBtn.disabled = atEnd;
+    nextBtn.classList.toggle("hidden", atEnd);
+  }
 }
 
 function getCurrentAnswerPayload() {
@@ -555,10 +569,16 @@ function renderResults(filter="all") {
   if (resultsTitle) {
     resultsTitle.textContent = state.qcmTitle ? `Résultats — ${state.qcmTitle}` : "Résultats";
   }
+  const elapsedSec = state.quizStartedAt ? Math.max(0, Math.floor(((state.quizEndedAt || Date.now()) - state.quizStartedAt) / 1000)) : 0;
+  const avgPerQ = state.questions.length ? Math.round(elapsedSec / state.questions.length) : 0;
   $("metricMean").textContent = metrics.mean.toFixed(2);
   $("metric20").textContent = format1(metrics.note20);
   $("metricDone").textContent = `${metrics.done}/${state.questions.length}`;
   $("metricFlag").textContent = `${metrics.flagged}`;
+  const el = $("metricTimeTotal");
+  if (el) el.textContent = elapsedSec ? formatTime(elapsedSec) : "--:--";
+  const elAvg = $("metricTimeAvg");
+  if (elAvg) elAvg.textContent = avgPerQ ? formatTime(avgPerQ) : "--:--";
 
   const list = $("resultsList");
   list.innerHTML = "";
@@ -640,6 +660,8 @@ function restartWithQuestions(questions) {
   state.validated = {};
   state.flagged = new Set();
   state.finished = false;
+  state.quizStartedAt = null;
+  state.quizEndedAt = null;
   initTimerForQuestions();
   renderSetup();
   goStep("quiz");
@@ -658,6 +680,14 @@ function restartWrongCurrent() {
   });
   const wrongQs = wrongIdx.map(i => qs[i]);
   restartWithQuestions(wrongQs);
+}
+
+function restartFlaggedCurrent() {
+  const qs = state.questions || [];
+  if (!qs.length) return restartWithQuestions([]);
+  const flaggedIdx = Array.from(state.flagged || []);
+  const flaggedQs = flaggedIdx.map(i => qs[i]).filter(Boolean);
+  restartWithQuestions(flaggedQs);
 }
 
 function buildCorrectionBlock(i) {
@@ -758,6 +788,11 @@ function init() {
     $("accountMenu").classList.add("hidden");
     openHistory();
   });
+  const btnStats = $("btnStats");
+  if (btnStats) btnStats.addEventListener("click", () => {
+    $("accountMenu").classList.add("hidden");
+    openStats(30);
+  });
 
   // gate buttons
   $("btnGateSignUp").addEventListener("click", async () => {
@@ -795,14 +830,6 @@ function init() {
     });
   });
 
-  // steps nav
-  document.querySelectorAll(".step").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const step = btn.dataset.step;
-      if (step !== "setup" && !state.questions.length) return goStep("setup");
-      goStep(step);
-    });
-  });
 
   // segmented mode
   const segWrap = document.querySelector(".segmented");
@@ -921,6 +948,7 @@ function init() {
   });
   $("btnFinish").addEventListener("click", () => {
     state.finished = true;
+    state.quizEndedAt = Date.now();
     saveRunIfAuthed();
     goStep("results");
   });
@@ -967,11 +995,63 @@ function init() {
   $("btnBackToSetup").addEventListener("click", () => goStep("setup"));
   $("btnRestartAll").addEventListener("click", () => restartAllCurrent());
   $("btnRestartWrong").addEventListener("click", () => restartWrongCurrent());
+  $("btnRestartFlagged").addEventListener("click", () => restartFlaggedCurrent());
 
   // theme toggle
   $("btnTheme").addEventListener("click", () => {
     setTheme(state.theme === "light" ? "dark" : "light");
   });
+
+  // fullscreen
+  const btnFullscreen = $("btnFullscreen");
+  if (btnFullscreen) {
+    const iconExpand = `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10 10L4.5 4.5"></path>
+        <path d="M4.5 4.5h4.5"></path>
+        <path d="M4.5 4.5v4.5"></path>
+        <path d="M14 10l5.5-5.5"></path>
+        <path d="M19.5 4.5h-4.5"></path>
+        <path d="M19.5 4.5v4.5"></path>
+        <path d="M10 14l-5.5 5.5"></path>
+        <path d="M4.5 19.5h4.5"></path>
+        <path d="M4.5 19.5v-4.5"></path>
+        <path d="M14 14l5.5 5.5"></path>
+        <path d="M19.5 19.5h-4.5"></path>
+        <path d="M19.5 19.5v-4.5"></path>
+      </svg>`;
+    const iconExit = `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4.5 4.5L10 10"></path>
+        <path d="M10 10H6"></path>
+        <path d="M10 10V6"></path>
+        <path d="M19.5 4.5L14 10"></path>
+        <path d="M14 10h4"></path>
+        <path d="M14 10V6"></path>
+        <path d="M4.5 19.5L10 14"></path>
+        <path d="M10 14H6"></path>
+        <path d="M10 14v4"></path>
+        <path d="M19.5 19.5L14 14"></path>
+        <path d="M14 14h4"></path>
+        <path d="M14 14v4"></path>
+      </svg>`;
+    const updateFsLabel = () => {
+      const icon = btnFullscreen.querySelector(".icon");
+      if (icon) icon.innerHTML = document.fullscreenElement ? iconExit : iconExpand;
+      btnFullscreen.title = document.fullscreenElement ? "Quitter plein ecran" : "Plein ecran";
+      btnFullscreen.setAttribute("aria-label", btnFullscreen.title);
+    };
+    btnFullscreen.addEventListener("click", async () => {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+      updateFsLabel();
+    });
+    document.addEventListener("fullscreenchange", updateFsLabel);
+    updateFsLabel();
+  }
 
   // FIX: fermer la modale quoi qu'il arrive au chargement
   hideModal();

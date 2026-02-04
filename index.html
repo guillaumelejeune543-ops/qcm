@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QCM LAS — Plateforme</title>
+  <title>QCM LAS &mdash; Plateforme</title>
   <meta name="description" content="Plateforme gratuite QCM LAS : import JSON, passage interactif, barème LAS, correction et note sur 20." />
   <!-- Anti-cache v6 -->
   <link rel="stylesheet" href="styles.css?v=6" />
@@ -12,20 +12,18 @@
 <body>
 <header class="topbar">
   <div class="brand">
-    <div class="logo">🩺</div>
+    <div class="logo">Q</div>
     <div>
       <div class="title">QCM LAS</div>
-      <div class="subtitle">Examen interactif • Barème LAS • Correction</div>
+      <div class="subtitle">Examen interactif &bull; Bareme LAS &bull; Correction</div>
     </div>
   </div>
 
   <div class="topbar-actions">
     <button id="btnTheme" class="btn btn-ghost">
-      <span class="icon">🌙</span>
+      <span class="icon">Theme</span>
     </button>
-    <button id="btnResetAll" class="btn btn-ghost">
-      🧹
-    </button>
+    <button id="btnResetAll" class="btn btn-ghost">Reinitialiser</button>
   </div>
 </header>
 
@@ -43,7 +41,7 @@
   <div class="card-header">
     <h2>Charger un QCM (JSON)</h2>
     <p class="muted">
-      Génère ton JSON avec ChatGPT Pro, puis colle-le ici.
+      Colle ton JSON ici.
     </p>
   </div>
 
@@ -56,14 +54,13 @@
         placeholder='[{"type":"multi","question":"..."}]'></textarea>
 
       <div class="row">
-        <button id="btnLoadJson" class="btn btn-primary">📥 Charger le QCM</button>
+        <button id="btnLoadJson" class="btn btn-primary">Charger le QCM</button>
 
-        <label class="btn btn-secondary file-btn">
-          📄 Importer .json
+        <label class="btn btn-secondary file-btn">Importer .json
           <input id="fileInput" type="file" accept="application/json" />
         </label>
 
-        <button id="btnDemo" class="btn btn-ghost">✨ Exemple</button>
+        <button id="btnDemo" class="btn btn-ghost">Exemple</button>
       </div>
 
       <div id="setupMsg" class="msg"></div>
@@ -96,32 +93,21 @@
         </p>
       </div>
 
-      <!-- BARÈME -->
+      <!-- BAREME -->
       <div class="field">
-        <label class="label">Barème LAS</label>
+        <label class="label">Bareme LAS</label>
         <div class="badge-row">
-          <span class="badge">0 erreur → 1.0</span>
-          <span class="badge">1 erreur → 0.5</span>
-          <span class="badge">2 erreurs → 0.2</span>
-          <span class="badge">≥3 erreurs → 0.0</span>
-        </div>
-      </div>
-
-      <!-- AUTOSAVE -->
-      <div class="field">
-        <label class="label">Sauvegarde</label>
-        <div class="toggle">
-          <input id="autosaveToggle" type="checkbox" checked />
-          <label for="autosaveToggle">Reprendre plus tard</label>
+          <span class="badge">0 erreur &rarr; 1.0</span>
+          <span class="badge">1 erreur &rarr; 0.5</span>
+          <span class="badge">2 erreurs &rarr; 0.2</span>
+          <span class="badge">&ge;3 erreurs &rarr; 0.0</span>
         </div>
       </div>
 
       <div class="divider"></div>
 
       <h3>Prompt ChatGPT</h3>
-      <button id="btnCopyPrompt" class="btn btn-secondary">
-        📋 Copier le prompt
-      </button>
+      <button id="btnCopyPrompt" class="btn btn-secondary">Copier le prompt</button>
       <pre id="promptBox" class="pre"></pre>
     </div>
 
@@ -137,9 +123,9 @@
       <p class="muted" id="quizMeta"></p>
     </div>
     <div class="quiz-tools">
-      <div id="timerDisplay" class="badge">⏱️ --:--</div>
-      <button id="btnFlag" class="btn btn-ghost">⭐</button>
-      <button id="btnReview" class="btn btn-ghost">📚</button>
+      <div id="timerDisplay" class="badge">Temps --:--</div>
+      <button id="btnFlag" class="btn btn-ghost">Marquer</button>
+      <button id="btnReview" class="btn btn-ghost">Liste</button>
     </div>
   </div>
 
@@ -155,11 +141,11 @@
   <div id="questionCard" class="question"></div>
 
   <div class="row space-between">
-    <button id="btnPrev" class="btn btn-secondary">⬅️ Précédente</button>
+    <button id="btnPrev" class="btn btn-secondary">Precedente</button>
     <div class="row">
-      <button id="btnValidate" class="btn btn-primary">✅ Valider</button>
-      <button id="btnNext" class="btn btn-secondary">➡️ Suivante</button>
-      <button id="btnFinish" class="btn btn-ghost">🏁 Terminer</button>
+      <button id="btnValidate" class="btn btn-primary">Valider</button>
+      <button id="btnNext" class="btn btn-secondary">Suivante</button>
+      <button id="btnFinish" class="btn btn-ghost">Terminer</button>
     </div>
   </div>
 
@@ -175,20 +161,35 @@
   <div class="metrics">
     <div class="metric">
       <div class="metric-label">Score moyen</div>
-      <div class="metric-value" id="metricMean">—</div>
+      <div class="metric-value" id="metricMean">&mdash;</div>
     </div>
     <div class="metric">
       <div class="metric-label">Note /20</div>
-      <div class="metric-value" id="metric20">—</div>
+      <div class="metric-value" id="metric20">&mdash;</div>
     </div>
+    <div class="metric">
+      <div class="metric-label">Validées</div>
+      <div class="metric-value" id="metricDone">&mdash;</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Marquées</div>
+      <div class="metric-value" id="metricFlag">&mdash;</div>
+    </div>
+  </div>
+
+  <div class="row space-between" style="padding: 12px 16px 0;">
+    <div class="row">
+      <button id="btnShowAll" class="btn btn-secondary">Tout</button>
+      <button id="btnShowWrong" class="btn btn-secondary">Erreurs</button>
+      <button id="btnShowFlag" class="btn btn-secondary">Marquées</button>
+    </div>
+    <button id="btnExportResults" class="btn btn-ghost">Exporter JSON</button>
   </div>
 
   <div id="resultsList" class="results"></div>
 
   <div class="row">
-    <button id="btnBackToSetup" class="btn btn-secondary">
-      ↩️ Nouveau QCM
-    </button>
+    <button id="btnBackToSetup" class="btn btn-secondary">Nouveau QCM</button>
   </div>
 </section>
 
@@ -196,20 +197,23 @@
 <div id="modal" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
-      <div class="modal-title">Questions</div>
-      <button id="modalClose" class="btn btn-ghost">✖</button>
+      <div id="modalTitle" class="modal-title">Questions</div>
+      <button id="modalClose" class="btn btn-ghost">Fermer</button>
     </div>
-    <div id="modalBody"></div>
+    <div id="modalBody" class="modal-body"></div>
   </div>
 </div>
 
 </main>
 
 <footer class="footer">
-  <span class="muted">Plateforme QCM LAS — gratuite — v6</span>
+  <span class="muted">Plateforme QCM LAS &mdash; gratuite &mdash; v6</span>
 </footer>
 
 <!-- Anti-cache v6 -->
 <script src="app.js?v=6"></script>
 </body>
 </html>
+
+
+

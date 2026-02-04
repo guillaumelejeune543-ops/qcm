@@ -11,6 +11,7 @@ const state = {
   timerPerQuestion: 90,
   timerTotalSec: 0,
   accent: "rosesalmon",
+  user: null,
   timerRemainingSec: 0,
   timerRunning: false,
   timerLastTick: null,
@@ -24,6 +25,11 @@ const state = {
 };
 
 let timerInterval = null;
+
+// Supabase
+const SUPABASE_URL = "https://tftqrxpgcqkcehzqheqj.supabase.co";
+const SUPABASE_ANON = "sb_publishable_aV4d75MGFdQCk-jHtpTFUQ_k1MrDOtS";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const PROMPT_TEXT = `Tu es un enseignant en LAS.
 Tu dois generer des QCM STRICTEMENT bases sur le cours fourni par l'etudiant.
@@ -197,6 +203,39 @@ function resetAll(confirmUser=true) {
   state.timerLastSave = 0;
   goStep("setup");
   renderSetup();
+}
+
+function setAuthStatus(type, text) {
+  const el = $("authStatus");
+  if (!el) return;
+  if (!text) return clearMsg(el);
+  setMsg(el, type, text);
+}
+
+function renderAuth(user) {
+  state.user = user || null;
+  const email = $("authUser");
+  if (email) email.textContent = user ? `Connecte: ${user.email}` : "Non connecte";
+  const outBtn = $("btnSignOut");
+  if (outBtn) outBtn.style.display = user ? "" : "none";
+}
+
+async function saveRunIfAuthed() {
+  if (!state.user) return;
+  try {
+    const payload = {
+      user_id: state.user.id,
+      mode: state.mode,
+      metrics: computeFinalMetrics(),
+      questions: state.questions,
+      answers: state.answers,
+      validated: state.validated,
+      flagged: Array.from(state.flagged)
+    };
+    await supabase.from("quiz_runs").insert(payload);
+  } catch {
+    // ignore for now
+  }
 }
 
 function goStep(step) {
@@ -822,7 +861,7 @@ function init() {
   // theme default
   const restored = loadAutosave();
   setTheme(state.theme || "light");
-  setAccent(state.accent || "salmon");
+  setAccent(state.accent || "rosesalmon");
 
   // set prompt
   $("promptBox").textContent = PROMPT_TEXT;
@@ -833,6 +872,51 @@ function init() {
   if (restored) {
     setMsg($("setupMsg"), "ok", `Reprise auto : ${state.questions.length} questions en memoire.`);
   }
+
+  // auth init
+  supabase.auth.getSession().then(({ data }) => {
+    renderAuth(data.session?.user || null);
+  });
+  supabase.auth.onAuthStateChange((_event, session) => {
+    renderAuth(session?.user || null);
+  });
+
+  $("btnSignUp").addEventListener("click", async () => {
+    const email = $("authEmail").value.trim();
+    const password = $("authPassword").value;
+    if (!email || !password) return setAuthStatus("warn", "Email et mot de passe requis.");
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.href }
+    });
+    if (error) return setAuthStatus("err", error.message);
+    setAuthStatus("ok", "Compte cree. Verifie tes emails.");
+  });
+
+  $("btnSignIn").addEventListener("click", async () => {
+    const email = $("authEmail").value.trim();
+    const password = $("authPassword").value;
+    if (!email || !password) return setAuthStatus("warn", "Email et mot de passe requis.");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return setAuthStatus("err", error.message);
+    setAuthStatus("ok", "Connecte.");
+  });
+
+  $("btnResetPwd").addEventListener("click", async () => {
+    const email = $("authEmail").value.trim();
+    if (!email) return setAuthStatus("warn", "Entre ton email.");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.href
+    });
+    if (error) return setAuthStatus("err", error.message);
+    setAuthStatus("ok", "Email de reinitialisation envoye.");
+  });
+
+  $("btnSignOut").addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    setAuthStatus("ok", "Deconnecte.");
+  });
 
   // steps nav
   document.querySelectorAll(".step").forEach(btn => {
@@ -946,6 +1030,7 @@ function init() {
   $("btnFinish").addEventListener("click", () => {
     state.finished = true;
     autosaveMaybe();
+    saveRunIfAuthed();
     goStep("results");
   });
 

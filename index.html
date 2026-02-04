@@ -90,6 +90,30 @@
 
     <!-- SETTINGS -->
     <div class="panel">
+      <h3>Compte</h3>
+      <div class="auth-card">
+        <div class="auth-row">
+          <label class="label">Email</label>
+          <input id="authEmail" class="input" type="email" placeholder="email@exemple.com" />
+        </div>
+        <div class="auth-row">
+          <label class="label">Mot de passe</label>
+          <input id="authPassword" class="input" type="password" placeholder="Mot de passe" />
+        </div>
+        <div class="row">
+          <button id="btnSignUp" class="btn btn-secondary">Creer un compte</button>
+          <button id="btnSignIn" class="btn btn-primary">Se connecter</button>
+          <button id="btnResetPwd" class="btn btn-ghost">Mot de passe oublie</button>
+        </div>
+        <div id="authStatus" class="msg"></div>
+        <div class="auth-session">
+          <span id="authUser" class="muted"></span>
+          <button id="btnSignOut" class="btn btn-ghost">Se deconnecter</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
       <h3>Paramètres</h3>
 
       <!-- MODE -->
@@ -223,6 +247,7 @@
 
 
 <!-- Anti-cache v6 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js?v=6"></script>
 </body>
 </html>

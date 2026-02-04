@@ -247,7 +247,12 @@ function loadQuestionsFromJsonText(text) {
     questions = data;
   } else if (data && typeof data === "object" && Array.isArray(data.questions)) {
     questions = data.questions;
-    titleFromJson = typeof data.title === "string" ? data.title.trim() : "";
+    const rawTitle =
+      (typeof data.title === "string" && data.title) ||
+      (typeof data.titre === "string" && data.titre) ||
+      (typeof data.name === "string" && data.name) ||
+      "";
+    titleFromJson = String(rawTitle).trim();
   }
   if (!Array.isArray(questions) || questions.length === 0) {
     setMsg(setupMsg, "err", "Le JSON doit etre un tableau non vide de questions (ou un objet {title, questions}).");
@@ -265,7 +270,8 @@ function loadQuestionsFromJsonText(text) {
     const inputTitle = ($("qcmTitleInput")?.value || "").trim();
     state.qcmTitle = inputTitle || titleFromJson || "QCM";
     initTimerForQuestions();
-    setMsg(setupMsg, "ok", `QCM charge : ${validated.length} questions. Tu peux demarrer.`);
+    const titleInfo = state.qcmTitle ? ` (${state.qcmTitle})` : "";
+    setMsg(setupMsg, "ok", `QCM charge${titleInfo} : ${validated.length} questions. Tu peux demarrer.`);
     return true;
   } catch (e) {
     setMsg(setupMsg, "err", e.message || "Erreur de validation du format.");
@@ -528,6 +534,7 @@ async function saveRunIfAuthed() {
   const payload = {
     user_id: state.user.id,
     mode: state.mode,
+    title: state.qcmTitle || null,
     metrics: computeFinalMetrics(),
     questions: state.questions,
     answers: state.answers,
@@ -544,6 +551,10 @@ function renderResults(filter="all") {
   }
 
   const metrics = computeFinalMetrics();
+  const resultsTitle = $("resultsTitle");
+  if (resultsTitle) {
+    resultsTitle.textContent = state.qcmTitle ? `Résultats — ${state.qcmTitle}` : "Résultats";
+  }
   $("metricMean").textContent = metrics.mean.toFixed(2);
   $("metric20").textContent = format1(metrics.note20);
   $("metricDone").textContent = `${metrics.done}/${state.questions.length}`;

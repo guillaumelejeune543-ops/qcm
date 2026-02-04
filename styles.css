@@ -337,6 +337,7 @@ h3{margin:0 0 10px; font-family:"Prata","Times New Roman",serif; letter-spacing:
 .row{display:flex; gap:14px; align-items:center; flex-wrap:wrap}
 .space-between{justify-content:space-between}
 .row{margin-top:12px}
+.row{padding: 0 16px}
 .row.stack{
   flex-direction:column;
   align-items:stretch;
@@ -773,12 +774,17 @@ body.auth-locked footer{
 }
 .result-title{font-weight: 900}
 .result-tags{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
+.result-tags{flex-wrap:nowrap; align-items:center}
 .tag{
   font-size:12px;
   padding: 6px 10px;
   border-radius: 999px;
   border:1px solid var(--border);
   background: var(--chip);
+  white-space: nowrap;
+  display:inline-flex;
+  align-items:center;
+  line-height:1;
 }
 .tag.ok{border-color: rgba(125,247,167,.35); background: rgba(125,247,167,.10)}
 .tag.bad{border-color: rgba(255,107,122,.40); background: rgba(255,107,122,.08)}
@@ -802,6 +808,7 @@ body.auth-locked footer{
   display:grid;
   place-items:center;
   padding: 20px;
+  z-index: 200;
 }
 .modal-content{
   width:min(900px, 96vw);
@@ -821,6 +828,51 @@ body.auth-locked footer{
 }
 .modal-title{font-weight: 900; font-family:"Prata","Times New Roman",serif}
 .modal-body{padding: 12px}
+
+.history-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.history-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border:1px solid var(--border);
+  background: var(--surface);
+  cursor:pointer;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.history-item:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,.25);
+}
+.history-title{font-weight:800}
+.history-score{
+  font-weight:900;
+  font-size: 16px;
+}
+.history-details{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.history-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding-bottom: 8px;
+  border-bottom:1px solid var(--border);
+}
+.history-q{
+  border:1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  background: var(--surface);
+}
 
 .qgrid{
   display:grid;

@@ -15,7 +15,6 @@ const state = {
   timerRemainingSec: 0,
   timerRunning: false,
   timerLastTick: null,
-  timerLastSave: 0,
   questions: [],
   current: 0,
   answers: {},          // {idx: {type, payload}}
@@ -37,8 +36,9 @@ var supabaseClient = window.supabaseClient || (window.supabaseClient = window.su
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storageKey: SUPABASE_STORAGE_KEY
+      detectSessionInUrl: false,
+      storageKey: SUPABASE_STORAGE_KEY,
+      storage: window.localStorage
     }
   }
 ));
@@ -114,7 +114,6 @@ function initTimerForQuestions() {
   state.timerRemainingSec = state.timerTotalSec;
   state.timerRunning = false;
   state.timerLastTick = null;
-  state.timerLastSave = 0;
   updateTimerDisplay();
 }
 
@@ -140,11 +139,6 @@ function tickTimer() {
   state.timerRemainingSec = Math.max(0, (state.timerRemainingSec || 0) - delta);
 
   updateTimerDisplay();
-
-  if (!state.timerLastSave || (now - state.timerLastSave) > 10000) {
-    state.timerLastSave = now;
-    autosaveMaybe();
-  }
 
   if (state.timerRemainingSec <= 0) {
     stopTimer();
@@ -180,43 +174,16 @@ function setTheme(next) {
     document.documentElement.removeAttribute("data-theme");
     $("btnTheme").querySelector(".icon").textContent = "Sombre";
   }
-  autosaveMaybe();
 }
 
 function setAccent(next) {
   state.accent = next;
-  const root = document.documentElement;
   document.documentElement.setAttribute("data-accent", next);
   document.querySelectorAll(".accent-item").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.accent === next);
   });
 }
 
-function autosaveMaybe() {
-  return;
-}
-
-function loadAutosave() {
-  return false;
-}
-
-function resetAll(confirmUser=true) {
-  if (confirmUser && !confirm("Tout reinitialiser (QCM + reponses) ?")) return;
-  stopTimer();
-  state.questions = [];
-  state.current = 0;
-  state.answers = {};
-  state.validated = {};
-  state.flagged = new Set();
-  state.finished = false;
-  state.timerTotalSec = 0;
-  state.timerRemainingSec = 0;
-  state.timerRunning = false;
-  state.timerLastTick = null;
-  state.timerLastSave = 0;
-  goStep("setup");
-  renderSetup();
-}
 
 function setAuthStatus(type, text) {
   const el = $("authStatus");
@@ -438,7 +405,6 @@ function loadQuestionsFromJsonText(text) {
     state.flagged = new Set();
     state.finished = false;
     initTimerForQuestions();
-    autosaveMaybe();
     setMsg(setupMsg, "ok", `QCM charge : ${validated.length} questions. Tu peux demarrer.`);
     return true;
   } catch (e) {
@@ -560,7 +526,6 @@ function renderQuiz() {
       cb.addEventListener("change", () => {
         const cur = getCurrentAnswerPayload();
         state.answers[idx] = { type: "multi", payload: cur };
-        autosaveMaybe();
       });
 
       const txt = document.createElement("div");
@@ -591,7 +556,6 @@ function renderQuiz() {
       pillV.addEventListener("click", () => {
         savedTruth[i] = true;
         state.answers[idx] = { type: "tf", payload: { truth: savedTruth } };
-        autosaveMaybe();
         renderQuiz(); // re-render to update pills
       });
 
@@ -602,7 +566,6 @@ function renderQuiz() {
       pillF.addEventListener("click", () => {
         savedTruth[i] = false;
         state.answers[idx] = { type: "tf", payload: { truth: savedTruth } };
-        autosaveMaybe();
         renderQuiz();
       });
 
@@ -665,14 +628,12 @@ function validateCurrent() {
     const missing = truth.filter(v => v === null || v === undefined).length;
     if (missing > 0) {
       setMsg(quizMsg, "warn", "Il manque des reponses (Vrai/Faux) sur au moins un item.");
-      autosaveMaybe();
       return;
     }
     result = scoreTF(q, truth);
   }
 
   state.validated[idx] = result;
-  autosaveMaybe();
 
   if (state.mode === "train") {
     const t = result.errors === 0 ? "ok" : (result.errors <= 2 ? "warn" : "err");
@@ -779,16 +740,54 @@ function renderResults(filter="all") {
     list.appendChild(item);
   }
 
-  autosaveMaybe();
+}
+
+function restartWithQuestions(questions) {
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return setMsg($("setupMsg"), "warn", "Aucune question a relancer.");
+  }
+  stopTimer();
+  state.questions = questions;
+  state.current = 0;
+  state.answers = {};
+  state.validated = {};
+  state.flagged = new Set();
+  state.finished = false;
+  initTimerForQuestions();
+  renderSetup();
+  goStep("quiz");
+}
+
+function restartAllCurrent() {
+  restartWithQuestions(state.questions || []);
+}
+
+function restartWrongCurrent() {
+  const qs = state.questions || [];
+  if (!qs.length) return restartWithQuestions([]);
+  const wrongIdx = qs.map((_, i) => i).filter(i => {
+    const v = state.validated[i];
+    return !v || v.errors >= 1;
+  });
+  const wrongQs = wrongIdx.map(i => qs[i]);
+  restartWithQuestions(wrongQs);
 }
 
 function buildCorrectionBlock(i) {
-  const q = state.questions[i];
-  const v = state.validated[i];
+  return buildCorrectionFromData({
+    question: state.questions[i],
+    validated: state.validated[i],
+    userAnswer: state.answers[i]?.payload
+  });
+}
+
+function buildCorrectionFromData({ question, validated, userAnswer }) {
+  const q = question;
+  const v = validated;
   const box = document.createElement("div");
 
   // answer from user
-  const user = state.answers[i]?.payload;
+  const user = userAnswer;
 
   if (v) {
     const meta = document.createElement("div");
@@ -884,6 +883,165 @@ function showModal(title, bodyNode) {
   $("modal").classList.remove("hidden");
 }
 
+function formatDateShort(iso) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleString("fr-FR", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+async function openHistory() {
+  const wrap = document.createElement("div");
+  wrap.className = "history-list";
+
+  if (!state.user) {
+    const msg = document.createElement("div");
+    msg.className = "muted";
+    msg.textContent = "Connecte-toi pour voir ton historique.";
+    wrap.appendChild(msg);
+    return showModal("Historique QCM", wrap);
+  }
+
+  const loading = document.createElement("div");
+  loading.className = "muted";
+  loading.textContent = "Chargement...";
+  wrap.appendChild(loading);
+  showModal("Historique QCM", wrap);
+
+  const { data, error } = await supabaseClient
+    .from(QUIZ_RUNS_TABLE)
+    .select("id, created_at, mode, metrics, questions, answers, validated")
+    .eq("user_id", state.user.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  wrap.innerHTML = "";
+
+  if (error) {
+    const err = document.createElement("div");
+    err.className = "msg err show";
+    err.textContent = "Impossible de charger l'historique.";
+    wrap.appendChild(err);
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "Aucun QCM enregistre pour le moment.";
+    wrap.appendChild(empty);
+    return;
+  }
+
+  data.forEach(row => {
+    const item = document.createElement("div");
+    item.className = "history-item";
+
+    const left = document.createElement("div");
+    left.className = "history-meta";
+    left.innerHTML = `
+      <div class="history-title">${row.mode === "exam" ? "Examen" : "Entrainement"}</div>
+      <div class="muted">${formatDateShort(row.created_at)}</div>
+    `;
+
+    const right = document.createElement("div");
+    right.className = "history-score";
+    const note = row.metrics?.note20 ?? null;
+    right.textContent = note === null ? "-" : `${format1(note)}/20`;
+
+    item.appendChild(left);
+    item.appendChild(right);
+    item.addEventListener("click", () => {
+      showModal("Details du QCM", buildHistoryDetails(row));
+    });
+    wrap.appendChild(item);
+  });
+}
+
+function buildHistoryDetails(row) {
+  const wrap = document.createElement("div");
+  wrap.className = "history-details";
+
+  const header = document.createElement("div");
+  header.className = "history-head";
+  const modeLabel = row.mode === "exam" ? "Examen" : "Entrainement";
+  header.innerHTML = `
+    <div>
+      <div class="history-title">${modeLabel}</div>
+      <div class="muted">${formatDateShort(row.created_at)}</div>
+    </div>
+    <div class="history-score">${row.metrics?.note20 !== undefined ? `${format1(row.metrics.note20)}/20` : "-"}</div>
+  `;
+  wrap.appendChild(header);
+
+  const actions = document.createElement("div");
+  actions.className = "row";
+  const btnAll = document.createElement("button");
+  btnAll.className = "btn btn-primary";
+  btnAll.textContent = "Recommencer tout le QCM";
+  btnAll.addEventListener("click", () => {
+    hideModal();
+    restartWithQuestions(Array.isArray(row.questions) ? row.questions : []);
+  });
+  const btnWrong = document.createElement("button");
+  btnWrong.className = "btn btn-secondary";
+  btnWrong.textContent = "Recommencer les erreurs";
+  btnWrong.addEventListener("click", () => {
+    hideModal();
+    const qs = Array.isArray(row.questions) ? row.questions : [];
+    const vmap = row.validated || {};
+    const wrong = qs.filter((_, i) => !vmap[i] || vmap[i].errors >= 1);
+    restartWithQuestions(wrong);
+  });
+  actions.appendChild(btnAll);
+  actions.appendChild(btnWrong);
+  wrap.appendChild(actions);
+
+  const qList = Array.isArray(row.questions) ? row.questions : [];
+  const answers = row.answers || {};
+  const validated = row.validated || {};
+
+  if (!qList.length) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "Aucune question disponible pour ce run.";
+    wrap.appendChild(empty);
+    return wrap;
+  }
+
+  qList.forEach((q, i) => {
+    const block = document.createElement("div");
+    block.className = "history-q";
+
+    const title = document.createElement("div");
+    title.className = "q-title";
+    title.textContent = `Q${i+1} - ${q.type === "multi" ? "Multi" : "V/F"}`;
+    block.appendChild(title);
+
+    const question = document.createElement("div");
+    question.className = "q-meta";
+    question.innerHTML = escapeHtml(q.question || "");
+    block.appendChild(question);
+
+    const corr = buildCorrectionFromData({
+      question: q,
+      validated: validated[i],
+      userAnswer: answers[i]?.payload
+    });
+    block.appendChild(corr);
+
+    wrap.appendChild(block);
+  });
+
+  return wrap;
+}
+
 function hideModal() {
   $("modal").classList.add("hidden");
 }
@@ -903,7 +1061,6 @@ function openQuestionGrid() {
 
     btn.addEventListener("click", () => {
       state.current = i;
-      autosaveMaybe();
       hideModal();
       goStep("quiz");
     });
@@ -961,8 +1118,6 @@ const DEMO = [
 // Events
 // -----------------------------
 function init() {
-  // theme default
-  const restored = loadAutosave();
   setTheme(state.theme || "light");
   setAccent(state.accent || "rosesalmon");
 
@@ -971,10 +1126,6 @@ function init() {
 
   // restore UI
   renderSetup();
-
-  if (restored) {
-    setMsg($("setupMsg"), "ok", `Reprise auto : ${state.questions.length} questions en memoire.`);
-  }
 
   // auth init
   supabaseClient.auth.getSession().then(({ data }) => {
@@ -988,6 +1139,11 @@ function init() {
   if (btnSignOut) btnSignOut.addEventListener("click", async () => {
     await supabaseClient.auth.signOut();
     setAuthStatus("ok", "Deconnecte.");
+  });
+  const btnHistory = $("btnHistory");
+  if (btnHistory) btnHistory.addEventListener("click", () => {
+    $("accountMenu").classList.add("hidden");
+    openHistory();
   });
 
   // gate buttons
@@ -1055,7 +1211,6 @@ function init() {
         startTimer();
       }
       updateTimerDisplay();
-      autosaveMaybe();
       clearMsg($("setupMsg"));
     });
   });
@@ -1096,7 +1251,6 @@ function init() {
       startTimer();
     }
     updateTimerDisplay();
-    autosaveMaybe();
   });
 
   $("timerPerQuestion").addEventListener("input", (e) => {
@@ -1141,22 +1295,18 @@ function init() {
   // quiz buttons
   $("btnPrev").addEventListener("click", () => {
     if (state.current > 0) state.current--;
-    autosaveMaybe();
     renderQuiz();
   });
   $("btnNext").addEventListener("click", () => {
     if (state.current < state.questions.length - 1) state.current++;
-    autosaveMaybe();
     renderQuiz();
   });
   $("btnValidate").addEventListener("click", () => {
     validateCurrent();
-    autosaveMaybe();
     renderQuiz();
   });
   $("btnFinish").addEventListener("click", () => {
     state.finished = true;
-    autosaveMaybe();
     saveRunIfAuthed();
     goStep("results");
   });
@@ -1165,7 +1315,6 @@ function init() {
     const i = state.current;
     if (state.flagged.has(i)) state.flagged.delete(i);
     else state.flagged.add(i);
-    autosaveMaybe();
     renderQuiz();
   });
 
@@ -1202,15 +1351,15 @@ function init() {
   });
 
   $("btnBackToSetup").addEventListener("click", () => goStep("setup"));
+  $("btnRestartAll").addEventListener("click", () => restartAllCurrent());
+  $("btnRestartWrong").addEventListener("click", () => restartWrongCurrent());
 
   // theme toggle
   $("btnTheme").addEventListener("click", () => {
     setTheme(state.theme === "light" ? "dark" : "light");
   });
 
-  // reset
-  $("btnResetAll").addEventListener("click", () => resetAll(true));
-    // FIX: fermer la modale quoi qu'il arrive au chargement
+  // FIX: fermer la modale quoi qu'il arrive au chargement
   hideModal();
 
   // FIX: touche Echap pour fermer la modale si elle s'affiche
@@ -1220,4 +1369,3 @@ function init() {
 }
 
 init();
-

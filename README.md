@@ -1,11 +1,7 @@
 rajouter en haut a droite bouton plein ecran
 -Mode “Révision ciblée”
 
-Après un QCM :
 
-bouton “Refaire uniquement les questions fausses”
-
-ou “Refaire les questions marquées ⭐”
 
 
 -Optimisation iPad / mobile
@@ -16,9 +12,6 @@ swipe gauche / droite
 
 retour haptique léger (iPad)
 
-
-
-sauvegarder en fonction du compte la couleur
 
 
 quand on est a la derniere question bouton suivant qui s'fface 

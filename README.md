@@ -14,7 +14,6 @@ retour haptique léger (iPad)
 
 
 
-quand on est a la derniere question bouton suivant qui s'fface 
 
 
 bonus

@@ -82,10 +82,11 @@ function buildCorrectionFromData({ question, validated, userAnswer }) {
       let state = "neutral";
       let label = "";
       if (isC && isU) { state = "ok"; label = "Correct"; }
-      else if (isC && !isU) { state = "miss"; label = "Oublie"; }
+      else if (isC && !isU) { state = "bad"; label = "Oublié"; }
       else if (!isC && isU) { state = "bad"; label = "Faux"; }
+      else if (!isC && !isU) { state = "ok"; label = "Correct"; }
 
-      rows.push({ text: opt, state, label });
+      rows.push({ text: opt, state, label, userChecked: isU });
     }
   } else {
     const truth = q.truth;
@@ -100,20 +101,23 @@ function buildCorrectionFromData({ question, validated, userAnswer }) {
       let state = "neutral";
       let label = "";
       let suffix = "";
-      if (got === "-") { state = "miss"; label = "Non repondu"; suffix = `attendu: ${expected}`; }
-      else if ((u[k] === truth[k])) { state = "ok"; label = "Correct"; suffix = got; }
-      else { state = "bad"; label = "Faux"; suffix = `${got} (attendu: ${expected})`; }
+      if (got === "-") { state = "miss"; label = "Non repondu"; suffix = `Attendu : ${expected}`; }
+      else if ((u[k] === truth[k])) { state = "ok"; label = "Correct"; suffix = `Coché : ${got}`; }
+      else { state = "bad"; label = "Faux"; suffix = `Coché : ${got} · Attendu : ${expected}`; }
 
-      rows.push({ text: item, state, label, suffix });
+    rows.push({ text: item, state, label, suffix });
     }
   }
 
   rows.forEach(r => {
     const line = document.createElement("div");
     line.className = `corr-line ${r.state}`;
+    const check = r.userChecked !== undefined
+      ? `<span class="corr-check ${r.userChecked ? "on" : "off"}" aria-hidden="true"></span>`
+      : "";
     line.innerHTML = `
       <span class="corr-tag">${r.label}</span>
-      <span class="corr-text">${escapeHtml(r.text)}</span>
+      <span class="corr-text">${check}${escapeHtml(r.text)}</span>
       ${r.suffix ? `<span class="corr-suffix">${escapeHtml(r.suffix)}</span>` : ""}
     `;
     list.appendChild(line);
@@ -128,16 +132,18 @@ function buildCorrectionFromData({ question, validated, userAnswer }) {
   box.appendChild(exp);
 
   if (Array.isArray(q.evidence) && q.evidence.length) {
-    const evTitle = document.createElement("div");
-    evTitle.style.marginTop = "12px";
-    evTitle.innerHTML = `<div class="muted" style="font-weight:800;margin-bottom:6px;">Preuves (cours)</div>`;
-    box.appendChild(evTitle);
+    const details = document.createElement("details");
+    details.className = "evidence";
+    const summary = document.createElement("summary");
+    summary.textContent = "Preuves (cours)";
+    details.appendChild(summary);
 
     q.evidence.slice(0,3).forEach(ev => {
       const evBox = document.createElement("pre");
       evBox.textContent = `Page ${ev.page}:\n${ev.excerpt}`;
-      box.appendChild(evBox);
+      details.appendChild(evBox);
     });
+    box.appendChild(details);
   }
 
   return box;

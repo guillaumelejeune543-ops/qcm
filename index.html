@@ -1,22 +1,10 @@
 ﻿<!doctype html>
-<html lang="fr">
+<html lang="fr" data-accent="rosesalmon" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>QCM LAS &mdash; Plateforme</title>
   <meta name="description" content="Plateforme gratuite QCM LAS : import JSON, passage interactif, barème LAS, correction et note sur 20." />
-  <script>
-    (function(){
-      try{
-        var theme = localStorage.getItem("qcm_pref_theme");
-        var accent = localStorage.getItem("qcm_pref_accent");
-        var nextTheme = theme || "light";
-        var nextAccent = accent || "rosesalmon";
-        if (nextTheme === "light") document.documentElement.setAttribute("data-theme","light");
-        if (nextAccent) document.documentElement.setAttribute("data-accent", nextAccent);
-      }catch(e){}
-    })();
-  </script>
   <!-- Anti-cache v9 -->
   <link rel="stylesheet" href="styles.css?v=9" />
 </head>
@@ -100,51 +88,80 @@
     <div id="profileStatus" class="msg"></div>
   </div>
 </div>
-<header class="topbar">
-  <div class="brand">
-    <button id="btnAccount" class="logo account-btn" title="Compte">👤</button>
-    <div>
-      <div class="title">QCM LAS</div>
-      <div class="subtitle">Examen interactif &bull; Bareme LAS &bull; Correction</div>
-    </div>
-  </div>
-
-  <div class="topbar-actions">
-    <div class="theme-menu">
-      <button id="btnAccent" class="btn btn-ghost">Theme</button>
-      <div id="accentMenu" class="accent-menu hidden">
-        <button class="accent-item" data-accent="rosesalmon">Rose saumon</button>
-        <button class="accent-item" data-accent="blue">Bleu</button>
-        <button class="accent-item" data-accent="green">Vert pale</button>
-        <button class="accent-item" data-accent="lilac">Lilas</button>
-        <button class="accent-item" data-accent="mint">Menthe</button>
-        <button class="accent-item" data-accent="amber">Ambre</button>
-        <button class="accent-item" data-accent="slate">Ardoise</button>
-        <button class="accent-item" data-accent="chocolate">Chocolat</button>
-        <button class="accent-item" data-accent="turquoise">Turquoise</button>
-        <button class="accent-item" data-accent="sand">Sable</button>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="side-brand">
+      <div class="side-logo">Q</div>
+      <div>
+        <div class="side-title">QCM LAS</div>
+        <div class="side-sub">Espace etudiant</div>
       </div>
     </div>
-    <button id="btnTheme" class="btn btn-ghost">
-      <span class="icon">Theme</span>
-    </button>
-    <button id="btnFullscreen" class="btn btn-ghost icon-btn" title="Plein ecran" aria-label="Plein ecran">
-      <span class="icon icon-svg" aria-hidden="true"></span>
-    </button>
-  </div>
-</header>
+    <div class="side-actions">
+      <button class="btn btn-primary side-btn">Nouveau QCM</button>
+      <button class="btn btn-ghost side-btn">Historique</button>
+    </div>
+    <div class="side-section">
+      <div class="side-section-title">Dossiers</div>
+      <div class="side-folder-controls">
+        <input id="folderNameInput" class="input side-input" type="text" placeholder="Nouveau dossier" />
+        <button id="btnCreateFolder" class="btn btn-secondary side-btn">Creer dossier</button>
+        <div id="folderMsg" class="msg"></div>
+      </div>
+      <div id="sideFolderList" class="side-list drive-side-list"></div>
+    </div>
+    <div class="side-footer"></div>
+  </aside>
 
-<div id="accountMenu" class="account-menu hidden">
-  <div class="account-title">Compte</div>
-  <div id="authUser" class="muted">Non connecte</div>
-  <div class="row" style="margin-top:8px;">
-    <button id="btnStats" class="btn btn-secondary">Stats</button>
-    <button id="btnHistory" class="btn btn-secondary">Historique QCM</button>
-    <button id="btnSignOut" class="btn btn-ghost">Se deconnecter</button>
-  </div>
-</div>
+  <div class="main-shell">
+    <header class="topbar">
+      <div class="brand">
+        <button id="btnSidebar" class="btn btn-ghost icon-btn" title="Menu" aria-label="Menu">
+          <span class="icon">☰</span>
+        </button>
+        <div>
+          <div class="title">QCM LAS</div>
+          <div class="subtitle"></div>
+        </div>
+      </div>
 
-<main class="container">
+      <div class="topbar-actions">
+        <button id="btnAccount" class="btn btn-ghost">Compte</button>
+        <div class="theme-menu">
+          <button id="btnAccent" class="btn btn-ghost">Theme</button>
+          <div id="accentMenu" class="accent-menu hidden">
+            <button class="accent-item" data-accent="rosesalmon">Rose saumon</button>
+            <button class="accent-item" data-accent="blue">Bleu</button>
+            <button class="accent-item" data-accent="green">Vert pale</button>
+            <button class="accent-item" data-accent="lilac">Lilas</button>
+            <button class="accent-item" data-accent="mint">Menthe</button>
+            <button class="accent-item" data-accent="amber">Ambre</button>
+            <button class="accent-item" data-accent="slate">Ardoise</button>
+            <button class="accent-item" data-accent="chocolate">Chocolat</button>
+            <button class="accent-item" data-accent="turquoise">Turquoise</button>
+            <button class="accent-item" data-accent="sand">Sable</button>
+          </div>
+        </div>
+        <button id="btnTheme" class="btn btn-ghost">
+          <span class="icon">Theme</span>
+        </button>
+        <button id="btnFullscreen" class="btn btn-ghost icon-btn" title="Plein ecran" aria-label="Plein ecran">
+          <span class="icon icon-svg" aria-hidden="true"></span>
+        </button>
+      </div>
+    </header>
+
+    <div id="accountMenu" class="account-menu hidden">
+      <div class="account-title">Compte</div>
+      <div id="authUser" class="muted">Non connecte</div>
+      <div class="row" style="margin-top:8px;">
+        <button id="btnStats" class="btn btn-secondary">Stats</button>
+        <button id="btnHistory" class="btn btn-secondary">Historique QCM</button>
+        <button id="btnSignOut" class="btn btn-ghost">Se deconnecter</button>
+      </div>
+    </div>
+
+    <main class="container">
 
 
 <!-- SETUP -->
@@ -155,22 +172,20 @@
 
   <div class="grid-2">
 
-    <!-- JSON INPUT -->
+    <!-- JSON / PDF INPUT -->
     <div class="panel">
       <div class="row" style="margin-bottom:10px;">
-        <button id="btnUsePdf" class="btn btn-primary">PDF (par defaut)</button>
-        <button id="btnUseJson" class="btn btn-ghost">JSON</button>
+        <button id="btnUsePdf" class="btn btn-ghost">PDF</button>
+        <button id="btnUseJson" class="btn btn-primary">JSON</button>
       </div>
 
-      <div id="pdfBlock">
+      <div id="pdfBlock" class="hidden">
         <div class="notice">
           <div class="notice-title">Mes PDFs</div>
           <div class="row" style="margin-top:8px;">
             <label class="btn btn-secondary file-btn">Importer PDF
               <input id="pdfInput" type="file" accept="application/pdf" />
             </label>
-            <input id="folderNameInput" class="input" type="text" placeholder="Nouveau dossier" />
-            <button id="btnCreateFolder" class="btn btn-secondary">Creer dossier</button>
           </div>
           <div id="pdfMsg" class="msg"></div>
           <div class="drive-table">
@@ -185,7 +200,7 @@
         </div>
       </div>
 
-      <div id="jsonBlock" class="hidden">
+      <div id="jsonBlock">
       <label class="label">Titre du QCM (optionnel)</label>
       <input id="qcmTitleInput" class="input" type="text" placeholder="Ex: Cardiologie - S1" />
 
@@ -193,23 +208,18 @@
       <textarea id="jsonInput" class="textarea"
         placeholder='...'></textarea>
 
-      <div class="row">
-        <button id="btnLoadJson" class="btn btn-primary">Charger le QCM</button>
-
-        <label class="btn btn-secondary file-btn">Importer .json
-          <input id="fileInput" type="file" accept="application/json" />
-        </label>
-
-        <button id="btnDemo" class="btn btn-ghost">Exemple</button>
-      </div>
+        <div class="row">
+          <button id="btnLoadJson" class="btn btn-primary">Charger le QCM</button>
+          <button id="btnDemo" class="btn btn-ghost">Exemple</button>
+        </div>
 
       <div class="notice">
-        <div class="notice-title">Comment creer ton QCM</div>
+        <div class="notice-title">Comment créer ton QCM</div>
         <ol class="notice-list">
-          <li>Ouvre une IA (ex: ChatGPT), importe ton PDF de cours.</li>
-          <li>Colle le prompt ci-contre dans l'IA.</li>
-          <li>Ajoute a la fin : "Genere X questions" (remplace X).</li>
-          <li>Copie le JSON genere et colle-le ici, ou importe le fichier .json.</li>
+          <li>Choisis le nombre de questions que tu souhaites.</li>
+          <li>Ouvre ChatGPT ou Gemini et ajoute ton PDF de cours.</li>
+          <li>Copie le “Prompt ChatGPT” juste à droite, puis colle-le dans l’IA.</li>
+          <li>Récupère le JSON fourni et colle-le juste au dessus (il s'agit du code entier).</li>
         </ol>
       </div>
       </div>
@@ -248,7 +258,13 @@
       <div class="divider"></div>
 
       <h3>Prompt ChatGPT</h3>
-      <button id="btnCopyPrompt" class="btn btn-secondary">Copier le prompt</button>
+      <div class="row">
+        <button id="btnCopyPrompt" class="btn btn-secondary">Copier le prompt</button>
+        <div class="row">
+          <label class="label" style="margin:0;">Questions</label>
+          <input id="promptQuestionCount" class="select" type="number" min="1" max="40" step="1" value="30" />
+        </div>
+      </div>
       <pre id="promptBox" class="pre"></pre>
     </div>
 
@@ -358,7 +374,9 @@
   </div>
 </div>
 
-</main>
+    </main>
+  </div>
+</div>
 
 
 

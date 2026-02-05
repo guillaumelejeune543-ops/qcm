@@ -3,7 +3,7 @@ const SUPABASE_URL = "https://tftqrxpgcqkcehzqheqj.supabase.co";
 const SUPABASE_ANON = "sb_publishable_aV4d75MGFdQCk-jHtpTFUQ_k1MrDOtS";
 const SUPABASE_STORAGE_KEY = "qcm_las_auth";
 const QUIZ_RUNS_TABLE = "quiz_runs";
-const QCM_API_BASE = window.QCM_API_BASE || "http://127.0.0.1:8787";
+const QCM_FUNCTION_URL = window.QCM_FUNCTION_URL || `${SUPABASE_URL}/functions/v1/pdf-to-qcm`;
 const PDF_INDEX_TABLE = "pdf_index";
 const PDF_FOLDERS_TABLE = "pdf_folders";
 
@@ -25,6 +25,10 @@ const FILES_BUCKET = "pdfs";
 let pdfFolders = [];
 let currentFolderId = null;
 let pdfRenderToken = 0;
+
+function folderMsgEl() {
+  return $("folderMsg") || $("pdfMsg");
+}
 
 let prefsTimer = null;
 function saveUserPrefs(prefs) {
@@ -82,7 +86,7 @@ async function loadFolders() {
   if (error) {
     console.error("loadFolders error:", error);
     pdfFolders = [];
-    setMsg($("pdfMsg"), "err", "Impossible de charger les dossiers.");
+    setMsg(folderMsgEl(), "err", "Impossible de charger les dossiers.");
     return;
   }
   pdfFolders = data || [];
@@ -90,7 +94,22 @@ async function loadFolders() {
 }
 
 function renderFolderList() {
-  // no sidebar anymore
+  const list = $("sideFolderList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  pdfFolders.forEach(f => {
+    const item = document.createElement("button");
+    item.className = "side-item" + (currentFolderId === f.id ? " active" : "");
+    item.innerHTML = `<span class="side-icon">📁</span>${escapeHtml(f.name)}`;
+    item.dataset.folderId = f.id;
+    enableFolderDrop(item);
+    item.addEventListener("click", () => {
+      if (currentFolderId === f.id) setCurrentFolder(null);
+      else setCurrentFolder(f.id);
+    });
+    list.appendChild(item);
+  });
 }
 
 function enableFolderDrop(el) {
@@ -119,9 +138,9 @@ async function createFolder(name) {
     .insert([{ user_id: state.user.id, name }]);
   if (error) {
     console.error("createFolder error:", error);
-    return setMsg($("pdfMsg"), "err", "Creation du dossier impossible.");
+    return setMsg(folderMsgEl(), "err", "Creation du dossier impossible.");
   }
-  setMsg($("pdfMsg"), "ok", "Dossier cree.");
+  setMsg(folderMsgEl(), "ok", "Dossier cree.");
   await loadFolders();
   await listUserPdfs();
 }
@@ -136,7 +155,7 @@ async function deleteFolder(id) {
   if (!state.user || !id) return;
   await supabaseClient.from(PDF_INDEX_TABLE).update({ folder_id: null }).eq("folder_id", id).eq("user_id", state.user.id);
   await supabaseClient.from(PDF_FOLDERS_TABLE).delete().eq("id", id).eq("user_id", state.user.id);
-  if (currentFolderId === id) currentFolderId = "all";
+  if (currentFolderId === id) currentFolderId = null;
   await loadFolders();
   await listUserPdfs();
 }
@@ -159,15 +178,24 @@ async function createQcmFromPdf(fileName) {
     .createSignedUrl(`${state.user.id}/${fileName}`, 180);
   if (urlErr) return setMsg(status, "err", "Lien temporaire impossible.");
 
+  const { data: refreshed, error: refreshErr } = await supabaseClient.auth.refreshSession();
+  const accessToken = refreshed.session?.access_token;
+  if (refreshErr) console.error("refreshSession error:", refreshErr);
+  if (!accessToken) return setMsg(status, "err", "Session invalide. Reconnecte-toi.");
+
   let openaiFileId = await getOpenAiFileId(fileName);
   const titleHint = titleFromFilename(fileName);
   try {
-    const res = await fetch(`${QCM_API_BASE}/api/pdf-to-qcm`, {
+    const res = await fetch(QCM_FUNCTION_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+        "apikey": SUPABASE_ANON
+      },
       body: JSON.stringify({ pdfUrl: urlData.signedUrl, titleHint, openai_file_id: openaiFileId, fileName })
     });
-    const payload = await res.json();
+    const payload = await res.json().catch(() => ({}));
     if (!res.ok || !payload?.data) {
       const msg = payload?.error || "Generation impossible.";
       return setMsg(status, "err", msg);
@@ -251,84 +279,8 @@ async function listUserPdfs() {
     return folderId === currentFolderId;
   });
 
-  // Back row when inside a folder
-  if (currentFolderId) {
-    const back = document.createElement("div");
-    back.className = "drive-row";
-    back.innerHTML = `
-      <div class="drive-name"><span class="drive-icon folder">↩</span>..</div>
-      <div class="drive-owner">moi</div>
-      <div class="drive-mod"></div>
-      <div class="drive-actions"></div>
-    `;
-    back.addEventListener("click", () => setCurrentFolder(null));
-    list.appendChild(back);
-  }
-
-  // Folders (visible at root)
-  if (!currentFolderId) {
-    pdfFolders.forEach(f => {
-      const row = document.createElement("div");
-      row.className = "drive-row";
-      row.dataset.folderId = f.id;
-
-      const name = document.createElement("div");
-      name.className = "drive-name";
-      name.innerHTML = `<span class="drive-icon folder">📁</span>${escapeHtml(f.name)}`;
-
-      const owner = document.createElement("div");
-      owner.className = "drive-owner";
-      owner.textContent = "moi";
-
-      const mod = document.createElement("div");
-      mod.className = "drive-mod";
-      mod.textContent = f.created_at ? new Date(f.created_at).toLocaleDateString("fr-FR") : "";
-
-      const actions = document.createElement("div");
-      actions.className = "drive-actions";
-      const btnRename = document.createElement("button");
-      btnRename.className = "btn btn-ghost";
-      btnRename.textContent = "Renommer";
-      btnRename.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const next = prompt("Nouveau nom du dossier :", f.name);
-        if (!next) return;
-        await renameFolder(f.id, next);
-      });
-      const btnDelete = document.createElement("button");
-      btnDelete.className = "btn btn-ghost";
-      btnDelete.textContent = "Supprimer";
-      btnDelete.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        if (!confirm("Supprimer ce dossier ? (Les PDFs resteront sans dossier)")) return;
-        await deleteFolder(f.id);
-      });
-      actions.appendChild(btnRename);
-      actions.appendChild(btnDelete);
-
-      row.appendChild(name);
-      row.appendChild(owner);
-      row.appendChild(mod);
-      row.appendChild(actions);
-      row.addEventListener("click", () => setCurrentFolder(f.id));
-      enableFolderDrop(row);
-      list.appendChild(row);
-    });
-  }
-
-  if (!filteredFiles.length && !pdfFolders.length) {
-    const empty = document.createElement("div");
-    empty.className = "muted";
-    empty.textContent = "Aucun PDF pour le moment.";
-    list.appendChild(empty);
-    return;
-  }
-  if (currentFolderId && !filteredFiles.length) {
-    const empty = document.createElement("div");
-    empty.className = "muted";
-    empty.textContent = "Dossier vide.";
-    list.appendChild(empty);
-  }
+  // Folders moved to left menu
+  if (!filteredFiles.length) return;
 
   filteredFiles.forEach(file => {
     if (!indexMap.has(file.name)) {
@@ -381,7 +333,16 @@ async function listUserPdfs() {
       if (delErr) return setMsg($("pdfMsg"), "err", "Suppression impossible.");
       if (openaiId) {
         try {
-          await fetch(`${QCM_API_BASE}/api/openai-file/${openaiId}`, { method: "DELETE" });
+          const { data: refreshed } = await supabaseClient.auth.refreshSession();
+          const accessToken = refreshed.session?.access_token;
+          if (!accessToken) return;
+          await fetch(`${QCM_FUNCTION_URL}?file_id=${encodeURIComponent(openaiId)}`, {
+            method: "DELETE",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "apikey": SUPABASE_ANON
+            }
+          });
         } catch {}
       }
       await supabaseClient

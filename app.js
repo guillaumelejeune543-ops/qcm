@@ -35,6 +35,7 @@ Contraintes OBLIGATOIRES :
 - Reponse en JSON STRICT (aucun texte hors JSON)
 - 80% questions type "multi" et 20% type "tf"
 - Toujours 5 propositions/items A->E
+- Les questions "multi" peuvent parfois avoir 1 seule bonne reponse (rarement).
 
 Format JSON attendu :
 {
@@ -63,9 +64,20 @@ Regles :
 - options/items doivent commencer exactement par "A ", "B ", "C ", "D ", "E "
 - answer_indices contient des indices 0..4
 - truth contient 5 booleens
-- explanation est en francais et ne doit pas ajouter d'informations hors cours
+- explanation est en francais, ne doit pas ajouter d'informations hors cours, et se termine par un resume des bonnes reponses par lettres (ex: "Reponses: ABC")
 - evidence est optionnel mais recommande (1 a 3 extraits)
 `;
+
+function clampPromptCount(count) {
+  if (!Number.isFinite(count)) return 30;
+  const n = Math.floor(count);
+  return Math.min(40, Math.max(1, n));
+}
+
+function buildPromptText(count) {
+  const n = clampPromptCount(count);
+  return `${PROMPT_TEXT}\nGenere ${n} questions.`;
+}
 
 function formatTime(sec) {
   const s = Math.max(0, Math.floor(sec || 0));
@@ -148,10 +160,9 @@ function setTheme(next) {
     document.documentElement.setAttribute("data-theme", "light");
     $("btnTheme").querySelector(".icon").textContent = "Clair";
   } else {
-    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.setAttribute("data-theme", "dark");
     $("btnTheme").querySelector(".icon").textContent = "Sombre";
   }
-  try { localStorage.setItem("qcm_pref_theme", next); } catch {}
   saveUserPrefs({ pref_theme: next });
 }
 
@@ -161,7 +172,6 @@ function setAccent(next) {
   document.querySelectorAll(".accent-item").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.accent === next);
   });
-  try { localStorage.setItem("qcm_pref_accent", next); } catch {}
   saveUserPrefs({ pref_accent: next });
 }
 
@@ -181,7 +191,10 @@ function goStep(step) {
   } else {
     stopTimer();
   }
-  if (step === "results") renderResults();
+  if (step === "results") {
+    validateAllQuestions();
+    renderResults();
+  }
 }
 
 function validateQuestion(q, idx) {
@@ -203,18 +216,12 @@ function validateQuestion(q, idx) {
   }
 
   const mustPrefix = ["A ","B ","C ","D ","E "];
-  const normalizeChoice = (text, i) => {
-    const raw = String(text || "");
-    if (raw.startsWith(mustPrefix[i])) return raw;
-    const stripped = raw.replace(/^\s*[A-Ea-e][\)\.\:\-]?\s*/,"");
-    return mustPrefix[i] + stripped.trim();
-  };
 
   if (q.type === "multi") {
     if (!Array.isArray(q.options) || q.options.length !== 5) throw new Error(baseErr("options doit contenir 5 elements"));
-    q.options = q.options.map((s, i) => {
+    q.options.forEach((s, i) => {
       if (typeof s !== "string") throw new Error(baseErr("options doivent etre des chaines"));
-      return normalizeChoice(s, i);
+      if (!s.startsWith(mustPrefix[i])) throw new Error(baseErr(`options[${i}] doit commencer par "${mustPrefix[i]}"`));
     });
     if (!Array.isArray(q.answer_indices) || q.answer_indices.length < 1 || q.answer_indices.length > 5) {
       throw new Error(baseErr("answer_indices doit contenir 1 a 5 indices"));
@@ -226,9 +233,9 @@ function validateQuestion(q, idx) {
     });
   } else {
     if (!Array.isArray(q.items) || q.items.length !== 5) throw new Error(baseErr("items doit contenir 5 elements"));
-    q.items = q.items.map((s, i) => {
+    q.items.forEach((s, i) => {
       if (typeof s !== "string") throw new Error(baseErr("items doivent etre des chaines"));
-      return normalizeChoice(s, i);
+      if (!s.startsWith(mustPrefix[i])) throw new Error(baseErr(`items[${i}] doit commencer par "${mustPrefix[i]}"`));
     });
     if (!Array.isArray(q.truth) || q.truth.length !== 5) throw new Error(baseErr("truth doit contenir 5 booleens"));
     q.truth.forEach(b => {
@@ -283,7 +290,7 @@ function loadQuestionsFromJsonText(text) {
     state.qcmTitle = inputTitle || titleFromJson || "QCM";
     initTimerForQuestions();
     const titleInfo = state.qcmTitle ? ` (${state.qcmTitle})` : "";
-    setMsg(setupMsg, "ok", `QCM charge${titleInfo} : ${validated.length} questions. Tu peux demarrer.`);
+    clearMsg(setupMsg);
     return true;
   } catch (e) {
     setMsg(setupMsg, "err", e.message || "Erreur de validation du format.");
@@ -318,7 +325,13 @@ function scoreTF(q, userTruth) {
 }
 
 function renderSetup() {
-  $("promptBox").textContent = PROMPT_TEXT;
+  const promptCount = $("promptQuestionCount");
+  if (promptCount) {
+    const v = parseInt(promptCount.value, 10);
+    promptCount.value = String(clampPromptCount(v));
+  }
+  const count = parseInt($("promptQuestionCount")?.value || "30", 10);
+  $("promptBox").textContent = buildPromptText(count);
 
   // segmented mode
   document.querySelectorAll(".seg").forEach(btn => {
@@ -347,7 +360,7 @@ function renderProgress() {
   const pct = Math.round(((idx+1) / n) * 100);
 
   $("progressFill").style.width = pct + "%";
-  $("progressText").textContent = `Question ${idx+1}/${n} - Validees: ${doneCount}/${n}`;
+  $("progressText").textContent = `Question ${idx+1}/${n}`;
 }
 
 function renderQuiz() {
@@ -384,7 +397,7 @@ function renderQuiz() {
 
   const meta = document.createElement("div");
   meta.className = "q-meta";
-  meta.textContent = q.type === "multi" ? "QCM multi-reponses (A->E)" : "Vrai/Faux par items (A->E)";
+  meta.textContent = q.type === "multi" ? "QCM" : "Vrai/Faux par items (A->E)";
   card.appendChild(meta);
 
   // previous saved answer
@@ -480,6 +493,12 @@ function renderQuiz() {
     nextBtn.disabled = atEnd;
     nextBtn.classList.toggle("hidden", atEnd);
   }
+
+  const validateBtn = $("btnValidate");
+  if (validateBtn) {
+    validateBtn.classList.toggle("hidden", state.mode === "exam");
+    validateBtn.textContent = state.mode === "train" ? "Corriger" : "Valider";
+  }
 }
 
 function getCurrentAnswerPayload() {
@@ -531,6 +550,24 @@ function validateCurrent() {
     setMsg(quizMsg, t, `Valide - erreurs=${result.errors} - score=${result.score}`);
   } else {
     setMsg(quizMsg, "ok", "Reponse enregistree. (Correction complete a la fin - mode Examen)");
+  }
+}
+
+function validateAllQuestions() {
+  if (!state.questions.length) return;
+  for (let i = 0; i < state.questions.length; i++) {
+    if (state.validated[i]) continue;
+    const q = state.questions[i];
+    const a = state.answers[i]?.payload;
+    let result;
+    if (q.type === "multi") {
+      const set = new Set(a?.indices || []);
+      result = scoreMulti(q, set);
+    } else {
+      const truth = a?.truth || [null, null, null, null, null];
+      result = scoreTF(q, truth);
+    }
+    state.validated[i] = result;
   }
 }
 
@@ -773,7 +810,8 @@ function init() {
   setAccent(state.accent || "rosesalmon");
 
   // set prompt
-  $("promptBox").textContent = PROMPT_TEXT;
+  const initCount = parseInt($("promptQuestionCount")?.value || "30", 10);
+  $("promptBox").textContent = buildPromptText(initCount);
 
   // restore UI
   renderSetup();
@@ -801,6 +839,7 @@ function init() {
     $("accountMenu").classList.add("hidden");
     openStats(30);
   });
+
   const pdfInput = $("pdfInput");
   if (pdfInput) pdfInput.addEventListener("change", async () => {
     const file = pdfInput.files?.[0];
@@ -811,7 +850,8 @@ function init() {
   if (btnCreateFolder) btnCreateFolder.addEventListener("click", async () => {
     const input = $("folderNameInput");
     const name = (input?.value || "").trim();
-    if (!name) return setMsg($("pdfMsg"), "warn", "Nom du dossier manquant.");
+    const msgEl = (typeof folderMsgEl === "function" ? folderMsgEl() : $("pdfMsg"));
+    if (!name) return setMsg(msgEl, "warn", "Nom du dossier manquant.");
     await createFolder(name);
     if (input) input.value = "";
   });
@@ -829,7 +869,7 @@ function init() {
   };
   if (btnUsePdf) btnUsePdf.addEventListener("click", () => setMode("pdf"));
   if (btnUseJson) btnUseJson.addEventListener("click", () => setMode("json"));
-  setMode("pdf");
+  setMode("json");
 
   // gate buttons
   $("btnGateSignUp").addEventListener("click", async () => {
@@ -942,9 +982,20 @@ function init() {
 
   // copy prompt
   $("btnCopyPrompt").addEventListener("click", async () => {
-    await navigator.clipboard.writeText(PROMPT_TEXT);
+    const count = parseInt($("promptQuestionCount")?.value || "30", 10);
+    await navigator.clipboard.writeText(buildPromptText(count));
     setMsg($("setupMsg"), "ok", "Prompt copie. Colle-le dans ChatGPT.");
   });
+
+  const promptCountEl = $("promptQuestionCount");
+  if (promptCountEl) {
+    promptCountEl.addEventListener("input", (e) => {
+      const v = parseInt(e.target.value, 10);
+      const next = clampPromptCount(v);
+      e.target.value = String(next);
+      $("promptBox").textContent = buildPromptText(next);
+    });
+  }
 
   // load JSON from textarea
   $("btnLoadJson").addEventListener("click", () => {
@@ -957,16 +1008,6 @@ function init() {
     $("jsonInput").value = JSON.stringify(DEMO, null, 2);
     if ($("qcmTitleInput")) $("qcmTitleInput").value = "Exemple QCM";
     const ok = loadQuestionsFromJsonText($("jsonInput").value);
-    if (ok) goStep("quiz");
-  });
-
-  // import file
-  $("fileInput").addEventListener("change", async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    $("jsonInput").value = text;
-    const ok = loadQuestionsFromJsonText(text);
     if (ok) goStep("quiz");
   });
 
@@ -986,6 +1027,7 @@ function init() {
   $("btnFinish").addEventListener("click", () => {
     state.finished = true;
     state.quizEndedAt = Date.now();
+    validateAllQuestions();
     saveRunIfAuthed();
     goStep("results");
   });
@@ -1038,6 +1080,24 @@ function init() {
   $("btnTheme").addEventListener("click", () => {
     setTheme(state.theme === "light" ? "dark" : "light");
   });
+
+  // sidebar toggle
+  const appShell = document.querySelector(".app-shell");
+  const sidebar = document.querySelector(".sidebar");
+  const btnSidebar = $("btnSidebar");
+  const stored = localStorage.getItem("qcm_sidebar_collapsed");
+  if (stored === "1") {
+    appShell?.classList.add("collapsed");
+    sidebar?.classList.add("collapsed");
+  }
+  if (btnSidebar) {
+    btnSidebar.addEventListener("click", () => {
+      appShell?.classList.toggle("collapsed");
+      sidebar?.classList.toggle("collapsed");
+      const isCollapsed = appShell?.classList.contains("collapsed");
+      localStorage.setItem("qcm_sidebar_collapsed", isCollapsed ? "1" : "0");
+    });
+  }
 
   // fullscreen
   const btnFullscreen = $("btnFullscreen");

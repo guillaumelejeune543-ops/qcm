@@ -157,6 +157,35 @@
 
     <!-- JSON INPUT -->
     <div class="panel">
+      <div class="row" style="margin-bottom:10px;">
+        <button id="btnUsePdf" class="btn btn-primary">PDF (par defaut)</button>
+        <button id="btnUseJson" class="btn btn-ghost">JSON</button>
+      </div>
+
+      <div id="pdfBlock">
+        <div class="notice">
+          <div class="notice-title">Mes PDFs</div>
+          <div class="row" style="margin-top:8px;">
+            <label class="btn btn-secondary file-btn">Importer PDF
+              <input id="pdfInput" type="file" accept="application/pdf" />
+            </label>
+            <input id="folderNameInput" class="input" type="text" placeholder="Nouveau dossier" />
+            <button id="btnCreateFolder" class="btn btn-secondary">Creer dossier</button>
+          </div>
+          <div id="pdfMsg" class="msg"></div>
+          <div class="drive-table">
+            <div class="drive-header">
+              <div class="drive-col name">Nom</div>
+              <div class="drive-col owner">Proprietaire</div>
+              <div class="drive-col modified">Date de modification</div>
+              <div class="drive-col actions">Actions</div>
+            </div>
+            <div id="pdfList" class="drive-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="jsonBlock" class="hidden">
       <label class="label">Titre du QCM (optionnel)</label>
       <input id="qcmTitleInput" class="input" type="text" placeholder="Ex: Cardiologie - S1" />
 
@@ -183,16 +212,6 @@
           <li>Copie le JSON genere et colle-le ici, ou importe le fichier .json.</li>
         </ol>
       </div>
-
-      <div class="notice">
-        <div class="notice-title">Mes PDFs</div>
-        <div class="row" style="margin-top:8px;">
-          <label class="btn btn-secondary file-btn">Importer PDF
-            <input id="pdfInput" type="file" accept="application/pdf" />
-          </label>
-        </div>
-        <div id="pdfMsg" class="msg"></div>
-        <div id="pdfList" class="file-list"></div>
       </div>
 
       <div id="setupMsg" class="msg"></div>

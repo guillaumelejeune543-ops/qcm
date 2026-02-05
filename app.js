@@ -203,12 +203,18 @@ function validateQuestion(q, idx) {
   }
 
   const mustPrefix = ["A ","B ","C ","D ","E "];
+  const normalizeChoice = (text, i) => {
+    const raw = String(text || "");
+    if (raw.startsWith(mustPrefix[i])) return raw;
+    const stripped = raw.replace(/^\s*[A-Ea-e][\)\.\:\-]?\s*/,"");
+    return mustPrefix[i] + stripped.trim();
+  };
 
   if (q.type === "multi") {
     if (!Array.isArray(q.options) || q.options.length !== 5) throw new Error(baseErr("options doit contenir 5 elements"));
-    q.options.forEach((s, i) => {
+    q.options = q.options.map((s, i) => {
       if (typeof s !== "string") throw new Error(baseErr("options doivent etre des chaines"));
-      if (!s.startsWith(mustPrefix[i])) throw new Error(baseErr(`options[${i}] doit commencer par "${mustPrefix[i]}"`));
+      return normalizeChoice(s, i);
     });
     if (!Array.isArray(q.answer_indices) || q.answer_indices.length < 1 || q.answer_indices.length > 5) {
       throw new Error(baseErr("answer_indices doit contenir 1 a 5 indices"));
@@ -220,9 +226,9 @@ function validateQuestion(q, idx) {
     });
   } else {
     if (!Array.isArray(q.items) || q.items.length !== 5) throw new Error(baseErr("items doit contenir 5 elements"));
-    q.items.forEach((s, i) => {
+    q.items = q.items.map((s, i) => {
       if (typeof s !== "string") throw new Error(baseErr("items doivent etre des chaines"));
-      if (!s.startsWith(mustPrefix[i])) throw new Error(baseErr(`items[${i}] doit commencer par "${mustPrefix[i]}"`));
+      return normalizeChoice(s, i);
     });
     if (!Array.isArray(q.truth) || q.truth.length !== 5) throw new Error(baseErr("truth doit contenir 5 booleens"));
     q.truth.forEach(b => {
@@ -801,6 +807,29 @@ function init() {
     await uploadPdf(file);
     pdfInput.value = "";
   });
+  const btnCreateFolder = $("btnCreateFolder");
+  if (btnCreateFolder) btnCreateFolder.addEventListener("click", async () => {
+    const input = $("folderNameInput");
+    const name = (input?.value || "").trim();
+    if (!name) return setMsg($("pdfMsg"), "warn", "Nom du dossier manquant.");
+    await createFolder(name);
+    if (input) input.value = "";
+  });
+
+  const btnUsePdf = $("btnUsePdf");
+  const btnUseJson = $("btnUseJson");
+  const pdfBlock = $("pdfBlock");
+  const jsonBlock = $("jsonBlock");
+  const setMode = (mode) => {
+    const isPdf = mode === "pdf";
+    if (pdfBlock) pdfBlock.classList.toggle("hidden", !isPdf);
+    if (jsonBlock) jsonBlock.classList.toggle("hidden", isPdf);
+    if (btnUsePdf) btnUsePdf.className = isPdf ? "btn btn-primary" : "btn btn-ghost";
+    if (btnUseJson) btnUseJson.className = isPdf ? "btn btn-ghost" : "btn btn-primary";
+  };
+  if (btnUsePdf) btnUsePdf.addEventListener("click", () => setMode("pdf"));
+  if (btnUseJson) btnUseJson.addEventListener("click", () => setMode("json"));
+  setMode("pdf");
 
   // gate buttons
   $("btnGateSignUp").addEventListener("click", async () => {

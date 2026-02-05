@@ -116,8 +116,9 @@ function buildCorrectionFromData({ question, validated, userAnswer }) {
       ? `<span class="corr-check ${r.userChecked ? "on" : "off"}" aria-hidden="true"></span>`
       : "";
     line.innerHTML = `
+      <span class="corr-letter">${escapeHtml(r.text).slice(0, 1)}</span>
       <span class="corr-tag">${r.label}</span>
-      <span class="corr-text">${check}${escapeHtml(r.text)}</span>
+      <span class="corr-text">${check}${escapeHtml(r.text).slice(2)}</span>
       ${r.suffix ? `<span class="corr-suffix">${escapeHtml(r.suffix)}</span>` : ""}
     `;
     list.appendChild(line);

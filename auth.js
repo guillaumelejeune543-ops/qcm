@@ -5,7 +5,10 @@ const SUPABASE_STORAGE_KEY = "qcm_las_auth";
 const QUIZ_RUNS_TABLE = "quiz_runs";
 const QCM_FUNCTION_URL = window.QCM_FUNCTION_URL || `${SUPABASE_URL}/functions/v1/pdf-to-qcm`;
 const PDF_INDEX_TABLE = "pdf_index";
-const PDF_FOLDERS_TABLE = "pdf_folders";
+const MATIERES_TABLE = "matieres";
+const CHAPITRES_TABLE = "chapitres";
+const QCM_SETS_TABLE = "qcm_sets";
+const FLASH_SETS_TABLE = "flash_sets";
 
 var supabaseClient = window.supabaseClient || (window.supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
@@ -21,10 +24,22 @@ var supabaseClient = window.supabaseClient || (window.supabaseClient = window.su
   }
 ));
 
+if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
+
 const FILES_BUCKET = "pdfs";
-let pdfFolders = [];
-let currentFolderId = null;
+let matieres = [];
+let chapitres = [];
+let currentMatiereId = null;
+let currentChapitreId = null;
 let pdfRenderToken = 0;
+let currentPdfName = null;
+let pdfThumbObserver = null;
+let pdfThumbQueue = [];
+let pdfThumbRunning = 0;
+const PDF_THUMB_CONCURRENCY = 2;
+let pdfSignedUrlMap = new Map();
 
 function folderMsgEl() {
   return $("folderMsg") || $("pdfMsg");
@@ -54,14 +69,19 @@ function fmtBytes(bytes) {
 }
 
 function openPdfInModal(url, name) {
-  const wrap = document.createElement("div");
-  wrap.className = "pdf-viewer";
-  const iframe = document.createElement("iframe");
-  iframe.src = url;
-  iframe.title = name || "PDF";
-  iframe.loading = "lazy";
-  wrap.appendChild(iframe);
-  showModal(name || "PDF", wrap);
+  const wrap = $("pdfInlineViewer");
+  const frame = $("pdfInlineFrame");
+  const title = $("pdfInlineTitle");
+  if (!wrap || !frame) return;
+  if (title) title.textContent = name || "PDF";
+  frame.src = url;
+  frame.title = name || "PDF";
+  frame.loading = "lazy";
+  wrap.classList.remove("hidden");
+  const list = $("pdfList");
+  if (list) list.classList.add("hidden");
+  const block = $("pdfBlock");
+  if (block) block.classList.add("viewer-only");
 }
 
 function titleFromFilename(name) {
@@ -70,105 +90,238 @@ function titleFromFilename(name) {
   return base.replace(/[_-]+/g, " ").trim();
 }
 
-function setCurrentFolder(id) {
-  currentFolderId = id || null;
-  renderFolderList();
-  listUserPdfs();
+function setCurrentMatiere(id) {
+  currentMatiereId = id || null;
+  renderMatiereList();
+  currentChapitreId = null;
+  currentPdfName = null;
+  if (typeof window.setCardsEnabled === "function") {
+    window.setCardsEnabled(false);
+  }
+  loadChapitres();
 }
 
-async function loadFolders() {
+function setCurrentChapitre(id, opts = {}) {
+  currentChapitreId = id || null;
+  currentPdfName = null;
+  if (typeof window.setCardsEnabled === "function") {
+    window.setCardsEnabled(!!currentMatiereId && !!currentChapitreId);
+  }
+  const pdfInput = $("pdfInput");
+  if (pdfInput) pdfInput.disabled = !currentChapitreId;
+
+  const title = $("pdfTitle");
+  const chapTitle = $("chapitreTitle");
+  const matiere = matieres.find(m => m.id === currentMatiereId);
+  const chapitre = chapitres.find(c => c.id === currentChapitreId);
+  if (title) {
+    if (matiere && chapitre) title.textContent = `Matiere : ${matiere.name} · Chapitre : ${chapitre.name}`;
+    else if (matiere) title.textContent = `Matiere : ${matiere.name} · Chapitres`;
+    else title.textContent = "Chapitres et PDFs";
+  }
+  if (chapTitle) {
+    chapTitle.textContent = matiere ? `Chapitres — ${matiere.name}` : "Chapitres";
+  }
+  loadChapterStats();
+
+  if (!opts.skipList) listUserPdfs();
+}
+
+async function loadMatieres() {
   if (!state.user) return;
   const { data, error } = await supabaseClient
-    .from(PDF_FOLDERS_TABLE)
+    .from(MATIERES_TABLE)
     .select("id, name, created_at")
     .eq("user_id", state.user.id)
     .order("created_at", { ascending: true });
   if (error) {
-    console.error("loadFolders error:", error);
-    pdfFolders = [];
-    setMsg(folderMsgEl(), "err", "Impossible de charger les dossiers.");
+    console.error("loadMatieres error:", error);
+    matieres = [];
+    setMsg(folderMsgEl(), "err", "Impossible de charger les matieres.");
     return;
   }
-  pdfFolders = data || [];
-  renderFolderList();
+  matieres = data || [];
+  if (!matieres.length) {
+    currentMatiereId = null;
+    clearMsg(folderMsgEl());
+    const msg = $("chapitreMsg");
+    if (msg) setMsg(msg, "warn", "Aucune matiere. Clique sur + pour en creer une.");
+    const pdfInput = $("pdfInput");
+    if (pdfInput) pdfInput.disabled = true;
+    setChapterCounts(0, 0);
+  } else if (!currentMatiereId || !matieres.find(m => m.id === currentMatiereId)) {
+    currentMatiereId = matieres[0].id;
+  }
+  renderMatiereList();
+  await loadChapitres();
 }
 
-function renderFolderList() {
-  const list = $("sideFolderList");
+async function loadChapitres() {
+  if (!state.user || !currentMatiereId) {
+    chapitres = [];
+    setCurrentChapitre(null, { skipList: true });
+    listUserPdfs();
+    return;
+  }
+  const { data, error } = await supabaseClient
+    .from(CHAPITRES_TABLE)
+    .select("id, name, created_at, matiere_id")
+    .eq("user_id", state.user.id)
+    .eq("matiere_id", currentMatiereId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("loadChapitres error:", error);
+    chapitres = [];
+    setMsg(folderMsgEl(), "err", "Impossible de charger les chapitres.");
+    return;
+  }
+  chapitres = data || [];
+  if (!chapitres.length) {
+    currentChapitreId = null;
+    const msg = $("chapitreMsg");
+    if (msg) setMsg(msg, "warn", "Aucun chapitre. Clique sur + pour en creer un.");
+    setChapterCounts(0, 0);
+  } else if (!currentChapitreId || !chapitres.find(c => c.id === currentChapitreId)) {
+    currentChapitreId = chapitres[0].id;
+    const msg = $("chapitreMsg");
+    if (msg) clearMsg(msg);
+  }
+  renderMatiereList();
+  renderChapitreList();
+  setCurrentChapitre(currentChapitreId, { skipList: true });
+  listUserPdfs();
+}
+
+function renderMatiereList() {
+  const list = $("sideMatieresList");
   if (!list) return;
   list.innerHTML = "";
 
-  pdfFolders.forEach(f => {
+  matieres.forEach(m => {
     const item = document.createElement("button");
-    item.className = "side-item" + (currentFolderId === f.id ? " active" : "");
-    item.innerHTML = `<span class="side-icon">📁</span>${escapeHtml(f.name)}`;
-    item.dataset.folderId = f.id;
-    enableFolderDrop(item);
+    item.className = "side-item" + (currentMatiereId === m.id ? " active" : "");
+    item.innerHTML = `<span class="side-icon">📘</span><span class="side-label">${escapeHtml(m.name)}</span>`;
+    item.title = m.name || "";
+    item.dataset.matiereId = m.id;
     item.addEventListener("click", () => {
-      if (currentFolderId === f.id) setCurrentFolder(null);
-      else setCurrentFolder(f.id);
+      if (currentMatiereId !== m.id) setCurrentMatiere(m.id);
     });
     list.appendChild(item);
   });
 }
 
-function enableFolderDrop(el) {
-  el.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    el.classList.add("folder-drop");
-  });
-  el.addEventListener("dragleave", () => {
-    el.classList.remove("folder-drop");
-  });
-  el.addEventListener("drop", async (e) => {
-    e.preventDefault();
-    el.classList.remove("folder-drop");
-    const fileName = e.dataTransfer.getData("text/plain");
-    if (!fileName) return;
-    const folderId = el.dataset.folderId || null;
-    await setFileFolder(fileName, folderId);
-    await listUserPdfs();
+function renderChapitreList() {
+  const list = $("sideChapitresList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  chapitres.forEach(ch => {
+    const item = document.createElement("button");
+    item.className = "side-item" + (currentChapitreId === ch.id ? " active" : "");
+    item.innerHTML = `<span class="side-icon">📁</span><span class="side-label">${escapeHtml(ch.name)}</span>`;
+    item.title = ch.name || "";
+    item.dataset.chapitreId = ch.id;
+    item.addEventListener("click", () => setCurrentChapitre(ch.id));
+    list.appendChild(item);
   });
 }
 
-async function createFolder(name) {
+function setChapterCounts(qcmCount = 0, flashCount = 0) {
+  const qcmEl = $("qcmCount");
+  const flashEl = $("flashCount");
+  if (qcmEl) qcmEl.textContent = String(qcmCount || 0);
+  if (flashEl) flashEl.textContent = String(flashCount || 0);
+}
+
+async function loadChapterStats() {
+  if (!state.user || !currentChapitreId) {
+    setChapterCounts(0, 0);
+    return;
+  }
+  try {
+    const { count: qcmCount, error: qcmErr } = await supabaseClient
+      .from(QCM_SETS_TABLE)
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", state.user.id)
+      .eq("chapitre_id", currentChapitreId);
+    if (qcmErr) console.error("loadChapterStats qcm error:", qcmErr);
+
+    const { count: flashCount, error: flashErr } = await supabaseClient
+      .from(FLASH_SETS_TABLE)
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", state.user.id)
+      .eq("chapitre_id", currentChapitreId);
+    if (flashErr) console.error("loadChapterStats flash error:", flashErr);
+
+    setChapterCounts(qcmCount || 0, flashCount || 0);
+  } catch (err) {
+    console.error("loadChapterStats error:", err);
+    setChapterCounts(0, 0);
+  }
+}
+
+function setCurrentPdf(name) {
+  currentPdfName = name || null;
+}
+
+async function createMatiere(name) {
   if (!state.user || !name) return;
   const { error } = await supabaseClient
-    .from(PDF_FOLDERS_TABLE)
+    .from(MATIERES_TABLE)
     .insert([{ user_id: state.user.id, name }]);
   if (error) {
-    console.error("createFolder error:", error);
-    return setMsg(folderMsgEl(), "err", "Creation du dossier impossible.");
+    console.error("createMatiere error:", error);
+    return setMsg(folderMsgEl(), "err", "Creation de la matiere impossible.");
   }
-  setMsg(folderMsgEl(), "ok", "Dossier cree.");
-  await loadFolders();
-  await listUserPdfs();
+  setMsg(folderMsgEl(), "ok", "Matiere creee.");
+  await loadMatieres();
 }
 
-async function renameFolder(id, name) {
+async function createChapitre(name) {
+  if (!state.user || !name || !currentMatiereId) return;
+  const { error } = await supabaseClient
+    .from(CHAPITRES_TABLE)
+    .insert([{ user_id: state.user.id, matiere_id: currentMatiereId, name }]);
+  if (error) {
+    console.error("createChapitre error:", error);
+    return setMsg(folderMsgEl(), "err", "Creation du chapitre impossible.");
+  }
+  setMsg(folderMsgEl(), "ok", "Chapitre cree.");
+  await loadChapitres();
+}
+
+async function renameChapitre(id, name) {
   if (!state.user || !id || !name) return;
-  await supabaseClient.from(PDF_FOLDERS_TABLE).update({ name }).eq("id", id).eq("user_id", state.user.id);
-  await loadFolders();
+  await supabaseClient.from(CHAPITRES_TABLE).update({ name }).eq("id", id).eq("user_id", state.user.id);
+  await loadChapitres();
 }
 
-async function deleteFolder(id) {
+async function deleteChapitre(id) {
   if (!state.user || !id) return;
-  await supabaseClient.from(PDF_INDEX_TABLE).update({ folder_id: null }).eq("folder_id", id).eq("user_id", state.user.id);
-  await supabaseClient.from(PDF_FOLDERS_TABLE).delete().eq("id", id).eq("user_id", state.user.id);
-  if (currentFolderId === id) currentFolderId = null;
-  await loadFolders();
-  await listUserPdfs();
-}
-
-async function setFileFolder(fileName, folderId) {
-  if (!state.user || !fileName) return;
   await supabaseClient
     .from(PDF_INDEX_TABLE)
-    .upsert({ user_id: state.user.id, file_name: fileName, folder_id: folderId }, { onConflict: "user_id,file_name" });
+    .delete()
+    .eq("chapitre_id", id)
+    .eq("user_id", state.user.id);
+  await supabaseClient
+    .from(CHAPITRES_TABLE)
+    .delete()
+    .eq("id", id)
+    .eq("user_id", state.user.id);
+  if (currentChapitreId === id) currentChapitreId = null;
+  await loadChapitres();
+}
+
+async function setFileChapitre(fileName, chapitreId) {
+  if (!state.user || !fileName || !chapitreId) return;
+  await supabaseClient
+    .from(PDF_INDEX_TABLE)
+    .upsert({ user_id: state.user.id, file_name: fileName, chapitre_id: chapitreId }, { onConflict: "user_id,file_name" });
 }
 
 async function createQcmFromPdf(fileName) {
   if (!state.user) return setMsg($("pdfMsg"), "warn", "Connecte-toi d'abord.");
+  setCurrentPdf(fileName);
   const status = $("pdfMsg");
   setMsg(status, "warn", "Generation du QCM en cours...");
 
@@ -242,16 +395,35 @@ async function saveOpenAiFileId(fileName, fileId) {
 
 async function listUserPdfs() {
   const token = ++pdfRenderToken;
-  const list = $("pdfList");
-  if (!list) return;
-  list.innerHTML = "";
+  const pdfList = $("pdfList");
+  if (!pdfList) return;
+  pdfList.innerHTML = "";
   if (!state.user) return;
+  pdfThumbQueue = [];
+  pdfThumbRunning = 0;
+  pdfSignedUrlMap = new Map();
 
-  await loadFolders();
-  if (token !== pdfRenderToken) return;
+  if (!matieres.length || !chapitres.length) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.style.padding = "10px 4px";
+    empty.textContent = "Selectionne une matiere et un chapitre pour voir les PDFs.";
+    pdfList.appendChild(empty);
+    return;
+  }
+
+  if (!currentChapitreId) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.style.padding = "10px 4px";
+    empty.textContent = "Selectionne un chapitre pour voir les PDFs.";
+    pdfList.appendChild(empty);
+    return;
+  }
+
   const { data: indexRows } = await supabaseClient
     .from(PDF_INDEX_TABLE)
-    .select("file_name, folder_id, openai_file_id")
+    .select("file_name, chapitre_id, openai_file_id")
     .eq("user_id", state.user.id);
   if (token !== pdfRenderToken) return;
   const indexMap = new Map((indexRows || []).map(r => [r.file_name, r]));
@@ -262,56 +434,136 @@ async function listUserPdfs() {
     .list(state.user.id, { limit: 100, sortBy: { column: "created_at", order: "desc" } });
   if (token !== pdfRenderToken) return;
 
-  if (error) {
-    setMsg($("pdfMsg"), "err", "Impossible de lister les fichiers.");
-    return;
-  }
-
-  if (!data) {
+  if (error || !data) {
     setMsg($("pdfMsg"), "err", "Impossible de lister les fichiers.");
     return;
   }
 
   const filteredFiles = data.filter(file => {
-    if (!currentFolderId) return true;
     const row = indexMap.get(file.name);
-    const folderId = row ? row.folder_id : null;
-    return folderId === currentFolderId;
+    const chapitreId = row ? row.chapitre_id : null;
+    return chapitreId === currentChapitreId;
   });
 
-  // Folders moved to left menu
-  if (!filteredFiles.length) return;
+  const fileNames = new Set(filteredFiles.map(f => f.name));
+  if (currentPdfName && !fileNames.has(currentPdfName)) {
+    setCurrentPdf(null);
+  }
+  if (!filteredFiles.length) {
+    setCurrentPdf(null);
+  }
 
-  filteredFiles.forEach(file => {
-    if (!indexMap.has(file.name)) {
-      setFileFolder(file.name, null);
+  const renderThumb = async (url, container, localToken) => {
+    if (!window.pdfjsLib) return;
+    try {
+      const loadingTask = window.pdfjsLib.getDocument({ url, disableFontFace: true, useSystemFonts: true });
+      const pdf = await loadingTask.promise;
+      if (localToken !== pdfRenderToken) return;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1 });
+      const targetWidth = 180;
+      const scale = targetWidth / viewport.width;
+      const vp = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = vp.width;
+      canvas.height = vp.height;
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      if (localToken !== pdfRenderToken) return;
+      container.innerHTML = "";
+      container.appendChild(canvas);
+    } catch (err) {
+      console.error("pdf thumb error:", err);
     }
+  };
+
+  const enqueueThumb = async (file, thumbEl, localToken) => {
+    if (thumbEl.dataset.rendered === "1") return;
+    if (pdfThumbRunning >= PDF_THUMB_CONCURRENCY) {
+      pdfThumbQueue.push(() => enqueueThumb(file, thumbEl, localToken));
+      return;
+    }
+    pdfThumbRunning++;
+    try {
+      const signedUrl = pdfSignedUrlMap.get(file.name);
+      if (signedUrl) {
+        await renderThumb(signedUrl, thumbEl, localToken);
+        thumbEl.dataset.rendered = "1";
+      }
+    } finally {
+      pdfThumbRunning--;
+      const next = pdfThumbQueue.shift();
+      if (next) next();
+    }
+  };
+
+  const ensureObserver = (files) => {
+    if (pdfThumbObserver) pdfThumbObserver.disconnect();
+    pdfThumbObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        pdfThumbObserver.unobserve(el);
+        const fileName = el.dataset.fileName;
+        if (!fileName) return;
+        const file = files.find(f => f.name === fileName);
+        if (!file) return;
+        enqueueThumb(file, el, token);
+      });
+    }, { root: null, rootMargin: "200px", threshold: 0.1 });
+  };
+
+  const paths = filteredFiles.map(f => `${state.user.id}/${f.name}`);
+  if (paths.length) {
+    const { data: signedList } = await supabaseClient
+      .storage
+      .from(FILES_BUCKET)
+      .createSignedUrls(paths, 300);
+    (signedList || []).forEach(item => {
+      if (item?.signedUrl && item?.path) {
+        const name = item.path.split("/").slice(1).join("/");
+        pdfSignedUrlMap.set(name, item.signedUrl);
+      }
+    });
+  }
+
+  ensureObserver(filteredFiles);
+
+  for (const file of filteredFiles) {
     const item = document.createElement("div");
-    item.className = "drive-row";
-    item.draggable = true;
-    item.addEventListener("dragstart", (e) => {
-      e.dataTransfer.setData("text/plain", file.name);
+    item.className = "pdf-card";
+    if (currentPdfName === file.name) item.classList.add("active");
+    item.addEventListener("click", () => {
+      setCurrentPdf(file.name);
+      item.classList.add("active");
+      pdfList.querySelectorAll(".pdf-card.active").forEach(card => {
+        if (card !== item) card.classList.remove("active");
+      });
     });
 
+    const thumb = document.createElement("div");
+    thumb.className = "pdf-thumb";
+    thumb.innerHTML = `<div class="thumb-loader"></div>`;
+    thumb.dataset.fileName = file.name;
+
     const name = document.createElement("div");
-    name.className = "drive-name";
-    name.innerHTML = `<span class="drive-icon">📄</span>${escapeHtml(file.name)}`;
+    name.className = "pdf-name";
+    name.textContent = file.name;
 
-    const owner = document.createElement("div");
-    owner.className = "drive-owner";
-    owner.textContent = "moi";
-
-    const mod = document.createElement("div");
-    mod.className = "drive-mod";
-    mod.textContent = file.created_at ? new Date(file.created_at).toLocaleDateString("fr-FR") : "";
+    const meta = document.createElement("div");
+    meta.className = "pdf-meta";
+    meta.textContent = file.created_at ? new Date(file.created_at).toLocaleDateString("fr-FR") : "";
 
     const actions = document.createElement("div");
-    actions.className = "drive-actions";
+    actions.className = "pdf-actions";
+
 
     const btn = document.createElement("button");
     btn.className = "btn btn-ghost";
     btn.textContent = "Ouvrir";
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      setCurrentPdf(file.name);
       const { data: urlData, error: urlErr } = await supabaseClient
         .storage
         .from(FILES_BUCKET)
@@ -323,7 +575,9 @@ async function listUserPdfs() {
     const del = document.createElement("button");
     del.className = "btn btn-ghost";
     del.textContent = "Supprimer";
-    del.addEventListener("click", async () => {
+    del.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (currentPdfName === file.name) setCurrentPdf(null);
       if (!confirm("Supprimer ce PDF ?")) return;
       let openaiId = await getOpenAiFileId(file.name);
       const { error: delErr } = await supabaseClient
@@ -356,28 +610,23 @@ async function listUserPdfs() {
       await listUserPdfs();
     });
 
-    const gen = document.createElement("button");
-    gen.className = "btn btn-primary";
-    gen.textContent = "Creer QCM";
-    gen.addEventListener("click", async () => {
-      gen.disabled = true;
-      await createQcmFromPdf(file.name);
-      gen.disabled = false;
-    });
-
     actions.appendChild(btn);
-    actions.appendChild(gen);
     actions.appendChild(del);
+    item.appendChild(thumb);
     item.appendChild(name);
-    item.appendChild(owner);
-    item.appendChild(mod);
+    item.appendChild(meta);
     item.appendChild(actions);
-    list.appendChild(item);
-  });
+    pdfList.appendChild(item);
+
+    if (pdfThumbObserver) pdfThumbObserver.observe(thumb);
+  }
 }
 
 async function uploadPdf(file) {
   if (!state.user) return setMsg($("pdfMsg"), "warn", "Connecte-toi d'abord.");
+  if (!currentChapitreId) {
+    return setMsg($("pdfMsg"), "warn", "Selectionne un chapitre d'abord.");
+  }
   if (!file || file.type !== "application/pdf") {
     return setMsg($("pdfMsg"), "warn", "Choisis un fichier PDF.");
   }
@@ -401,7 +650,7 @@ async function uploadPdf(file) {
     console.error("Upload PDF error:", error);
     return setMsg($("pdfMsg"), "err", error.message || "Upload impossible.");
   }
-  await setFileFolder(safeName, currentFolderId || null);
+  await setFileChapitre(safeName, currentChapitreId);
   setMsg($("pdfMsg"), "ok", "PDF uploadé.");
   await listUserPdfs();
 }
@@ -441,6 +690,9 @@ function renderAuth(user) {
   if (email) email.textContent = user ? `Connecte: ${user.email}` : "Non connecte";
   const outBtn = $("btnSignOut");
   if (outBtn) outBtn.style.display = user ? "" : "none";
+  const sideName = $("sideUserName");
+  const sideEmail = $("sideUserEmail");
+  const sideAvatar = $("sideAvatar");
 
   const gate = $("authGate");
   const profileGate = $("profileGate");
@@ -459,6 +711,22 @@ function renderAuth(user) {
 
   if (user) {
     const meta = user.user_metadata || {};
+    const first = (meta.first_name || "").trim();
+    const last = (meta.last_name || "").trim();
+    const fullName = (first || last) ? `${first} ${last}`.trim() : "Mon compte";
+    if (sideName) sideName.textContent = fullName;
+    if (sideEmail) sideEmail.textContent = user.email || "";
+    if (sideAvatar) {
+      const avatarUrl = meta.avatar_url || meta.picture || "";
+      if (avatarUrl) {
+        sideAvatar.innerHTML = `<img src="${avatarUrl}" alt="Profil" />`;
+      } else {
+        const initials = (first || last)
+          ? `${first ? first[0] : ""}${last ? last[0] : ""}`.toUpperCase()
+          : (user.email ? user.email[0].toUpperCase() : "U");
+        sideAvatar.textContent = initials || "U";
+      }
+    }
     if (meta.pref_theme && meta.pref_theme !== state.theme) {
       state.theme = meta.pref_theme;
       setTheme(meta.pref_theme);
@@ -469,13 +737,21 @@ function renderAuth(user) {
       setAccent(meta.pref_accent);
       try { localStorage.setItem("qcm_pref_accent", meta.pref_accent); } catch {}
     }
+  } else {
+    if (sideName) sideName.textContent = "Compte";
+    if (sideEmail) sideEmail.textContent = "non connecte";
+    if (sideAvatar) sideAvatar.textContent = "?";
   }
 
   const locked = !user || mustProfile;
   document.body.classList.toggle("auth-locked", locked);
 
   if (user) {
-    loadFolders().then(() => listUserPdfs());
+    loadMatieres().then(() => listUserPdfs());
+  } else {
+    currentMatiereId = null;
+    currentChapitreId = null;
+    currentPdfName = null;
   }
 }
 
@@ -547,10 +823,9 @@ async function openHistory() {
   wrap.appendChild(loading);
   showModal("Historique QCM", wrap);
 
-  // CHANGELOG: History no longer includes "flagged" (feature removed).
   const { data, error } = await supabaseClient
     .from(QUIZ_RUNS_TABLE)
-    .select("id, created_at, mode, title, metrics, questions, answers, validated")
+    .select("id, created_at, mode, title, metrics, questions, answers, validated, flagged")
     .eq("user_id", state.user.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -636,6 +911,17 @@ function buildHistoryDetails(row) {
   });
   actions.appendChild(btnAll);
   actions.appendChild(btnWrong);
+  const btnFlag = document.createElement("button");
+  btnFlag.className = "btn btn-secondary";
+  btnFlag.textContent = "Recommencer les marquées";
+  btnFlag.addEventListener("click", () => {
+    hideModal();
+    const qs = Array.isArray(row.questions) ? row.questions : [];
+    const flagged = Array.isArray(row.flagged) ? row.flagged : [];
+    const flaggedQs = flagged.map(i => qs[i]).filter(Boolean);
+    restartWithQuestions(flaggedQs);
+  });
+  actions.appendChild(btnFlag);
   wrap.appendChild(actions);
 
   const qList = Array.isArray(row.questions) ? row.questions : [];

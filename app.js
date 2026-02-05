@@ -77,7 +77,6 @@ function clampPromptCount(count) {
   return Math.min(40, Math.max(1, n));
 }
 
-// CHANGELOG: Clamp helper for timer seconds input (max 200).
 function clampTimerPerQuestionCount(count) {
   if (!Number.isFinite(count)) return 90;
   const n = Math.floor(count);
@@ -613,7 +612,6 @@ function renderResults(filter="all") {
     return;
   }
 
-  // CHANGELOG: Metrics now show Note/Temps total/Temps par question only.
   const metrics = computeFinalMetrics();
   const resultsTitle = $("resultsTitle");
   if (resultsTitle) {
@@ -696,7 +694,7 @@ function restartWithQuestions(questions) {
   state.current = 0;
   state.answers = {};
   state.validated = {};
-  state.finished = false;
+    state.finished = false;
   state.quizStartedAt = null;
   state.quizEndedAt = null;
   initTimerForQuestions();
@@ -812,6 +810,65 @@ function init() {
     await supabaseClient.auth.signOut();
     setAuthStatus("ok", "Deconnecte.");
   });
+  const btnAccountInfo = $("btnAccountInfo");
+  if (btnAccountInfo) btnAccountInfo.addEventListener("click", () => {
+    $("accountMenu").classList.add("hidden");
+    const wrap = document.createElement("div");
+    wrap.className = "auth-card";
+
+    const p = document.createElement("div");
+    p.className = "muted";
+    p.textContent = "Change ton mot de passe. Plus d'options arriveront bientôt.";
+    wrap.appendChild(p);
+
+    const row1 = document.createElement("div");
+    row1.className = "auth-row";
+    row1.innerHTML = `
+      <label class="label">Nouveau mot de passe</label>
+      <input id="accountNewPassword" class="input" type="password" placeholder="Nouveau mot de passe" />
+    `;
+    wrap.appendChild(row1);
+
+    const row2 = document.createElement("div");
+    row2.className = "auth-row";
+    row2.innerHTML = `
+      <label class="label">Confirmer</label>
+      <input id="accountNewPassword2" class="input" type="password" placeholder="Confirmer" />
+    `;
+    wrap.appendChild(row2);
+
+    const actions = document.createElement("div");
+    actions.className = "row";
+    actions.style.padding = "0";
+    actions.style.marginTop = "6px";
+    const btnSave = document.createElement("button");
+    btnSave.className = "btn btn-primary";
+    btnSave.textContent = "Mettre a jour";
+    btnSave.addEventListener("click", async () => {
+      const p1 = $("accountNewPassword")?.value || "";
+      const p2 = $("accountNewPassword2")?.value || "";
+      if (p1.length < 8) {
+        return setMsg($("accountPwdMsg"), "warn", "Mot de passe trop court (min 8).");
+      }
+      if (p1 !== p2) {
+        return setMsg($("accountPwdMsg"), "warn", "Les mots de passe ne correspondent pas.");
+      }
+      const { error } = await supabaseClient.auth.updateUser({ password: p1 });
+      if (error) return setMsg($("accountPwdMsg"), "err", error.message || "Erreur.");
+      setMsg($("accountPwdMsg"), "ok", "Mot de passe mis a jour.");
+      $("accountNewPassword").value = "";
+      $("accountNewPassword2").value = "";
+    });
+    actions.appendChild(btnSave);
+    wrap.appendChild(actions);
+
+    const msg = document.createElement("div");
+    msg.id = "accountPwdMsg";
+    msg.className = "msg";
+    wrap.appendChild(msg);
+
+    showModal("Information du compte", wrap);
+  });
   const btnHistory = $("btnHistory");
   if (btnHistory) btnHistory.addEventListener("click", () => {
     $("accountMenu").classList.add("hidden");
@@ -829,30 +886,76 @@ function init() {
     await uploadPdf(file);
     pdfInput.value = "";
   });
-  const btnCreateFolder = $("btnCreateFolder");
-  if (btnCreateFolder) btnCreateFolder.addEventListener("click", async () => {
-    const input = $("folderNameInput");
-    const name = (input?.value || "").trim();
-    const msgEl = (typeof folderMsgEl === "function" ? folderMsgEl() : $("pdfMsg"));
-    if (!name) return setMsg(msgEl, "warn", "Nom du dossier manquant.");
-    await createFolder(name);
-    if (input) input.value = "";
-  });
+  const btnSidePlus = $("btnSidePlus");
+  const openNameModal = (title, placeholder, onSubmit) => {
+    const wrap = document.createElement("div");
+    wrap.className = "auth-card";
 
-  const btnUsePdf = $("btnUsePdf");
-  const btnUseJson = $("btnUseJson");
-  const pdfBlock = $("pdfBlock");
-  const jsonBlock = $("jsonBlock");
-  const setMode = (mode) => {
-    const isPdf = mode === "pdf";
-    if (pdfBlock) pdfBlock.classList.toggle("hidden", !isPdf);
-    if (jsonBlock) jsonBlock.classList.toggle("hidden", isPdf);
-    if (btnUsePdf) btnUsePdf.className = isPdf ? "btn btn-primary" : "btn btn-ghost";
-    if (btnUseJson) btnUseJson.className = isPdf ? "btn btn-ghost" : "btn btn-primary";
+    const row = document.createElement("div");
+    row.className = "auth-row";
+    row.innerHTML = `
+      <label class="label">${title}</label>
+      <input id="modalNameInput" class="input" type="text" placeholder="${placeholder}" />
+    `;
+    wrap.appendChild(row);
+
+    const actions = document.createElement("div");
+    actions.className = "row";
+    actions.style.padding = "0";
+    actions.style.marginTop = "6px";
+
+    const btnSave = document.createElement("button");
+    btnSave.className = "btn btn-primary";
+    btnSave.textContent = "Creer";
+    btnSave.addEventListener("click", async () => {
+      const value = $("modalNameInput")?.value?.trim() || "";
+      if (!value) return setMsg($("modalNameMsg"), "warn", "Nom manquant.");
+      await onSubmit(value);
+      hideModal();
+    });
+
+    const btnCancel = document.createElement("button");
+    btnCancel.className = "btn btn-ghost";
+    btnCancel.textContent = "Annuler";
+    btnCancel.addEventListener("click", hideModal);
+
+    actions.appendChild(btnSave);
+    actions.appendChild(btnCancel);
+    wrap.appendChild(actions);
+
+    const msg = document.createElement("div");
+    msg.id = "modalNameMsg";
+    msg.className = "msg";
+    wrap.appendChild(msg);
+
+    showModal(title, wrap);
+    const input = $("modalNameInput");
+    if (input) {
+      input.focus();
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") btnSave.click();
+      });
+    }
   };
-  if (btnUsePdf) btnUsePdf.addEventListener("click", () => setMode("pdf"));
-  if (btnUseJson) btnUseJson.addEventListener("click", () => setMode("json"));
-  setMode("json");
+
+  if (btnSidePlus) btnSidePlus.addEventListener("click", async () => {
+    openNameModal("Nouvelle matiere", "Ex: Physiologie", async (name) => {
+      await createMatiere(name);
+    });
+  });
+  const btnAddChapitre = $("btnAddChapitre");
+  if (btnAddChapitre) btnAddChapitre.addEventListener("click", async () => {
+    if (!currentMatiereId) return setMsg($("chapitreMsg"), "warn", "Selectionne une matiere.");
+    openNameModal("Nouveau chapitre", "Ex: Chapitre 1", async (name) => {
+      await createChapitre(name);
+    });
+  });
+  const btnNewPdf = $("btnNewPdf");
+  if (btnNewPdf) btnNewPdf.addEventListener("click", () => {
+    const input = $("pdfInput");
+    if (input) input.click();
+    if (sidePlusMenu) sidePlusMenu.classList.add("hidden");
+  });
 
   // gate buttons
   $("btnGateSignUp").addEventListener("click", async () => {
@@ -932,13 +1035,15 @@ function init() {
     }
   });
 
-  // account menu
-  $("btnAccount").addEventListener("click", (e) => {
+  // account menu (sidebar only)
+  const btnSideAccount = $("btnSideAccount");
+  if (btnSideAccount) btnSideAccount.addEventListener("click", (e) => {
     e.stopPropagation();
+    $("accountMenu").classList.add("from-sidebar");
     $("accountMenu").classList.toggle("hidden");
   });
   document.addEventListener("click", (e) => {
-    if (!e.target.closest("#accountMenu") && !e.target.closest("#btnAccount")) {
+    if (!e.target.closest("#accountMenu") && !e.target.closest("#btnSideAccount")) {
       $("accountMenu").classList.add("hidden");
     }
   });
@@ -955,12 +1060,11 @@ function init() {
 
   const timerPerQuestionEl = $("timerPerQuestion");
   const applyTimerPerQuestion = (raw, forceClamp) => {
-    // CHANGELOG: Allow free typing; clamp only on blur (max 200).
     const v = parseInt(raw, 10);
     if (!Number.isFinite(v)) {
       if (forceClamp) {
         const next = clampTimerPerQuestionCount(90);
-        timerPerQuestionEl.value = String(next);
+        if (timerPerQuestionEl) timerPerQuestionEl.value = String(next);
         state.timerPerQuestion = next;
         initTimerForQuestions();
         if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
@@ -971,7 +1075,7 @@ function init() {
       return;
     }
     const next = forceClamp ? clampTimerPerQuestionCount(v) : Math.floor(v);
-    if (forceClamp) timerPerQuestionEl.value = String(next);
+    if (forceClamp && timerPerQuestionEl) timerPerQuestionEl.value = String(next);
     state.timerPerQuestion = next;
     initTimerForQuestions();
     if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
@@ -997,7 +1101,6 @@ function init() {
 
   const promptCountEl = $("promptQuestionCount");
   if (promptCountEl) {
-    // CHANGELOG: Allow free typing; clamp only on blur.
     const applyPromptCount = (raw, forceClamp) => {
       const v = parseInt(raw, 10);
       if (!Number.isFinite(v)) {
@@ -1012,7 +1115,6 @@ function init() {
       if (forceClamp) promptCountEl.value = String(next);
       $("promptBox").textContent = buildPromptText(next);
     };
-
     promptCountEl.addEventListener("input", (e) => {
       applyPromptCount(e.target.value, false);
     });
@@ -1021,8 +1123,6 @@ function init() {
     });
   }
 
-  // prompt count dropdown
-  // CHANGELOG: Custom dropdown with animation (10/20/30/40).
   const setupSelectMenu = (wrapId, toggleId, menuId, onPick) => {
     const wrap = $(wrapId);
     const toggle = $(toggleId);
@@ -1051,13 +1151,64 @@ function init() {
     promptCountEl.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
-  // CHANGELOG: Timer seconds dropdown presets (30/60/90/120).
   setupSelectMenu("timerPerQuestionWrap", "timerPerQuestionToggle", "timerPerQuestionMenu", (v) => {
     const next = clampTimerPerQuestionCount(v);
     if (timerPerQuestionEl) {
       timerPerQuestionEl.value = String(next);
       applyTimerPerQuestion(String(next), true);
     }
+  });
+
+  // import cards (right panel)
+  const jsonBlock = $("jsonBlock");
+  const settingsView = $("settingsView");
+  const cardPlaceholder = $("cardPlaceholder");
+  const cardPlaceholderTitle = $("cardPlaceholderTitle");
+  const cardPlaceholderText = $("cardPlaceholderText");
+  const setInputMode = (mode) => {
+    document.querySelectorAll("#importCards .mode-card").forEach(c => {
+      c.classList.toggle("active", c.dataset.view === mode);
+    });
+    if (mode === "settings") {
+      jsonBlock?.classList.add("hidden");
+      cardPlaceholder?.classList.add("hidden");
+      settingsView?.classList.remove("hidden");
+      return;
+    }
+    settingsView?.classList.add("hidden");
+    if (mode === "json") {
+      jsonBlock?.classList.remove("hidden");
+      cardPlaceholder?.classList.add("hidden");
+    } else {
+      jsonBlock?.classList.add("hidden");
+      cardPlaceholder?.classList.remove("hidden");
+      if (cardPlaceholderTitle) {
+        const title = document.querySelector(`#importCards .mode-card[data-view="${mode}"] .mode-card-title`);
+        cardPlaceholderTitle.textContent = title ? title.textContent : "En construction";
+      }
+      if (cardPlaceholderText) {
+        cardPlaceholderText.textContent = "Cette section arrive bientôt.";
+      }
+    }
+  };
+  setInputMode("settings");
+  const setCardsEnabled = (enabled) => {
+    document.querySelectorAll("#importCards .mode-card").forEach(card => {
+      if (card.dataset.view === "settings") return;
+      card.classList.toggle("disabled", !enabled);
+      card.disabled = !enabled;
+    });
+    if (!enabled) {
+      setInputMode("settings");
+    }
+  };
+  window.setCardsEnabled = setCardsEnabled;
+  setCardsEnabled(false);
+  document.querySelectorAll("#importCards .mode-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      if (card.classList.contains("disabled")) return;
+      setInputMode(card.dataset.view);
+    });
   });
 
   // load JSON from textarea
@@ -1101,6 +1252,18 @@ function init() {
   $("modalClose").addEventListener("click", hideModal);
   $("modal").addEventListener("click", (e) => {
     if (e.target === $("modal")) hideModal();
+  });
+
+  const btnCloseInlinePdf = $("btnCloseInlinePdf");
+  if (btnCloseInlinePdf) btnCloseInlinePdf.addEventListener("click", () => {
+    const wrap = $("pdfInlineViewer");
+    const frame = $("pdfInlineFrame");
+    const list = $("pdfList");
+    if (frame) frame.src = "";
+    if (wrap) wrap.classList.add("hidden");
+    if (list) list.classList.remove("hidden");
+    const block = $("pdfBlock");
+    if (block) block.classList.remove("viewer-only");
   });
 
   // results filters

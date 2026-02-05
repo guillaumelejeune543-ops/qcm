@@ -97,20 +97,31 @@
         <div class="side-sub">Espace etudiant</div>
       </div>
     </div>
-    <div class="side-actions">
-      <button class="btn btn-primary side-btn">Nouveau QCM</button>
-      <button class="btn btn-ghost side-btn">Historique</button>
-    </div>
     <div class="side-section">
-      <div class="side-section-title">Dossiers</div>
-      <div class="side-folder-controls">
-        <input id="folderNameInput" class="input side-input" type="text" placeholder="Nouveau dossier" />
-        <button id="btnCreateFolder" class="btn btn-secondary side-btn">Creer dossier</button>
-        <div id="folderMsg" class="msg"></div>
+      <div class="side-section-head">
+        <div class="side-section-title">Matieres</div>
+        <button id="btnSidePlus" class="btn btn-ghost icon-btn" aria-label="Ajouter une matiere" title="Ajouter une matiere">+</button>
       </div>
-      <div id="sideFolderList" class="side-list drive-side-list"></div>
+      <div id="folderMsg" class="msg"></div>
+      <div id="sideMatieresList" class="side-list drive-side-list"></div>
+      <div class="divider side-divider"></div>
+      <div class="side-section-head">
+        <div class="side-section-title">Chapitres</div>
+        <button id="btnAddChapitre" class="btn btn-ghost icon-btn" aria-label="Ajouter un chapitre" title="Ajouter un chapitre">+</button>
+      </div>
+      <div id="chapitreMsg" class="msg"></div>
+      <div id="sideChapitresList" class="side-list drive-side-list"></div>
     </div>
-    <div class="side-footer"></div>
+    <div class="side-footer">
+      <button id="btnSideAccount" class="side-account">
+        <div id="sideAvatar" class="side-avatar">?</div>
+        <div class="side-user-meta">
+          <div id="sideUserName" class="side-user-name">Compte</div>
+          <div id="sideUserEmail" class="side-user-sub">non connecte</div>
+        </div>
+        <span class="side-user-caret">▾</span>
+      </button>
+    </div>
   </aside>
 
   <div class="main-shell">
@@ -126,7 +137,6 @@
       </div>
 
       <div class="topbar-actions">
-        <button id="btnAccount" class="btn btn-ghost">Compte</button>
         <div class="theme-menu">
           <button id="btnAccent" class="btn btn-ghost">Theme</button>
           <div id="accentMenu" class="accent-menu hidden">
@@ -154,10 +164,48 @@
     <div id="accountMenu" class="account-menu hidden">
       <div class="account-title">Compte</div>
       <div id="authUser" class="muted">Non connecte</div>
-      <div class="row" style="margin-top:8px;">
-        <button id="btnStats" class="btn btn-secondary">Stats</button>
-        <button id="btnHistory" class="btn btn-secondary">Historique QCM</button>
-        <button id="btnSignOut" class="btn btn-ghost">Se deconnecter</button>
+      <div class="account-list">
+        <button id="btnAccountInfo" class="account-item" type="button">
+          <span class="account-item-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 8h.01"></path>
+              <path d="M11 12h1v4h1"></path>
+            </svg>
+          </span>
+          Information du compte
+        </button>
+        <button id="btnHistory" class="account-item" type="button">
+          <span class="account-item-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v5h5"></path>
+              <path d="M3.05 13a9 9 0 1 0 .5-3"></path>
+              <path d="M12 7v5l3 3"></path>
+            </svg>
+          </span>
+          Historique
+        </button>
+        <button id="btnStats" class="account-item" type="button">
+          <span class="account-item-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3v18h18"></path>
+              <rect x="7" y="12" width="3" height="6"></rect>
+              <rect x="12" y="9" width="3" height="9"></rect>
+              <rect x="17" y="6" width="3" height="12"></rect>
+            </svg>
+          </span>
+          Stats
+        </button>
+        <button id="btnSignOut" class="account-item" type="button">
+          <span class="account-item-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 17l5-5-5-5"></path>
+              <path d="M21 12H9"></path>
+              <path d="M13 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2"></path>
+            </svg>
+          </span>
+          Deconnexion
+        </button>
       </div>
     </div>
 
@@ -174,66 +222,64 @@
 
     <!-- JSON / PDF INPUT -->
     <div class="panel">
-      <div class="row" style="margin-bottom:10px;">
-        <button id="btnUsePdf" class="btn btn-ghost">PDF</button>
-        <button id="btnUseJson" class="btn btn-primary">JSON</button>
-      </div>
-
-      <div id="pdfBlock" class="hidden">
-        <div class="notice">
-          <div class="notice-title">Mes PDFs</div>
-          <div class="row" style="margin-top:8px;">
-            <label class="btn btn-secondary file-btn">Importer PDF
-              <input id="pdfInput" type="file" accept="application/pdf" />
-            </label>
-          </div>
-          <div id="pdfMsg" class="msg"></div>
-          <div class="drive-table">
-            <div class="drive-header">
-              <div class="drive-col name">Nom</div>
-              <div class="drive-col owner">Proprietaire</div>
-              <div class="drive-col modified">Date de modification</div>
-              <div class="drive-col actions">Actions</div>
-            </div>
-            <div id="pdfList" class="drive-body"></div>
-          </div>
+      <div id="chapterStats" class="stats-cards">
+        <div class="stat-card">
+          <div class="stat-label">QCM disponibles</div>
+          <div id="qcmCount" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Flash cards</div>
+          <div id="flashCount" class="stat-value">0</div>
         </div>
       </div>
-
-      <div id="jsonBlock">
-      <label class="label">Titre du QCM (optionnel)</label>
-      <input id="qcmTitleInput" class="input" type="text" placeholder="Ex: Cardiologie - S1" />
-
-      <label class="label">Coller le JSON</label>
-      <textarea id="jsonInput" class="textarea"
-        placeholder='...'></textarea>
-
-        <div class="row">
-          <button id="btnLoadJson" class="btn btn-primary">Charger le QCM</button>
-          <button id="btnDemo" class="btn btn-ghost">Exemple</button>
+      <div id="pdfBlock" class="notice">
+        <div class="notice-title" id="pdfTitle">PDFs du chapitre</div>
+        <div class="row" style="margin-top:8px;">
+          <label class="btn btn-secondary file-btn">Importer PDF
+            <input id="pdfInput" type="file" accept="application/pdf" />
+          </label>
         </div>
-
-      <div class="notice">
-        <div class="notice-title">Comment créer ton QCM</div>
-        <ol class="notice-list">
-          <li>Choisis le nombre de questions que tu souhaites.</li>
-          <li>Ouvre ChatGPT ou Gemini et ajoute ton PDF de cours.</li>
-          <li>Copie le “Prompt ChatGPT” juste à droite, puis colle-le dans l’IA.</li>
-          <li>Récupère le JSON fourni et colle-le juste au dessus (il s'agit du code entier).</li>
-        </ol>
+        <div id="pdfInlineViewer" class="pdf-inline hidden">
+          <div class="pdf-inline-head">
+            <div id="pdfInlineTitle" class="pdf-inline-title">PDF</div>
+            <button id="btnCloseInlinePdf" class="btn btn-ghost" type="button">Fermer</button>
+          </div>
+          <div class="pdf-inline-frame">
+            <iframe id="pdfInlineFrame" title="PDF"></iframe>
+          </div>
+        </div>
+        <div id="pdfMsg" class="msg"></div>
+        <div id="pdfList" class="pdf-grid"></div>
       </div>
-      </div>
-
       <div id="setupMsg" class="msg"></div>
     </div>
 
     <!-- SETTINGS -->
     <div class="panel">
-      <h3>Paramètres</h3>
+      <div class="mode-cards" id="importCards">
+        <button class="mode-card active" data-view="settings">
+          <div class="mode-card-title">Paramètres</div>
+          <div class="mode-card-sub">Configuration</div>
+        </button>
+        <button class="mode-card" data-view="json">
+          <div class="mode-card-title">JSON</div>
+          <div class="mode-card-sub">Coller un JSON</div>
+        </button>
+        <button class="mode-card" data-view="qcm">
+          <div class="mode-card-title">QCM</div>
+          <div class="mode-card-sub">En construction</div>
+        </button>
+        <button class="mode-card" data-view="flash">
+          <div class="mode-card-title">Flash Card</div>
+          <div class="mode-card-sub">En construction</div>
+        </button>
+      </div>
+
+      <div id="settingsView" class="mode-view">
+        <h3>Paramètres</h3>
 
       <!-- MODE -->
       <div class="field">
-        <!-- CHANGELOG: Info tooltip for mode explanation added. -->
         <div class="label-row">
           <label class="label">Mode</label>
           <button class="info-tip" type="button" aria-label="Informations sur les modes" data-tip="Examen : correction à la fin du QCM.&#10;Entraînement : correction disponible après chaque question.">i</button>
@@ -246,7 +292,7 @@
 
       <!-- TIMER -->
       <div class="field">
-        <label class="label">Minuteur </label>
+        <label class="label">Minuteur (mode Examen)</label>
         <div class="toggle">
           <input id="timerToggle" type="checkbox" checked />
           <label for="timerToggle">
@@ -254,7 +300,6 @@
           </label>
         </div>
         <div class="row" style="margin-top:8px;">
-          <!-- CHANGELOG: Custom dropdown presets for timer seconds (30/60/90/120), input remains editable. -->
           <label class="label" style="margin:0;">Secondes / question</label>
           <div class="select-wrap" id="timerPerQuestionWrap">
             <input id="timerPerQuestion" class="select" type="number" min="5" max="200" step="5" value="90" />
@@ -278,7 +323,6 @@
         <button id="btnCopyPrompt" class="btn btn-secondary">Copier le prompt</button>
         <div class="row">
           <label class="label" style="margin:0;">Questions</label>
-          <!-- CHANGELOG: Custom dropdown presets for question count (10/20/30/40), input remains editable. -->
           <div class="select-wrap" id="promptCountWrap">
             <input id="promptQuestionCount" class="select" type="number" min="1" max="40" step="1" value="30" />
             <button id="promptCountToggle" class="btn btn-ghost icon-btn select-toggle" type="button" aria-label="Choisir un nombre">
@@ -294,6 +338,39 @@
         </div>
       </div>
       <pre id="promptBox" class="pre"></pre>
+      </div>
+
+      <div id="cardPlaceholder" class="mode-view hidden">
+        <div class="placeholder-card">
+          <div id="cardPlaceholderTitle" class="placeholder-title">En construction</div>
+          <div id="cardPlaceholderText" class="muted">Cette section arrive bientôt.</div>
+        </div>
+      </div>
+
+      <div id="jsonBlock" class="mode-view hidden">
+        <label class="label">Titre du QCM (optionnel)</label>
+        <input id="qcmTitleInput" class="input" type="text" placeholder="Ex: Cardiologie - S1" />
+
+        <label class="label">Coller le JSON</label>
+        <textarea id="jsonInput" class="textarea"
+          placeholder='...'></textarea>
+
+          <div class="row">
+            <button id="btnLoadJson" class="btn btn-primary">Charger le QCM</button>
+            <button id="btnDemo" class="btn btn-ghost">Exemple</button>
+          </div>
+
+        <div class="notice">
+          <div class="notice-title">Comment créer ton QCM</div>
+          <ol class="notice-list">
+            <li>Choisis le nombre de questions que tu souhaites.</li>
+            <li>Ouvre ChatGPT ou Gemini et ajoute ton PDF de cours.</li>
+            <li>Copie le “Prompt ChatGPT” juste à droite, puis colle-le dans l’IA.</li>
+            <li>Récupère le JSON fourni et colle-le juste au dessus (il s'agit du code entier).</li>
+          </ol>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -307,10 +384,10 @@
       <h2>Passage du QCM</h2>
       <p class="muted" id="quizMeta"></p>
     </div>
-        <div class="quiz-tools">
-          <div id="timerDisplay" class="badge">--:--</div>
-          <button id="btnReview" class="btn btn-ghost">Liste</button>
-        </div>
+    <div class="quiz-tools">
+      <div id="timerDisplay" class="badge">--:--</div>
+      <button id="btnReview" class="btn btn-ghost">Liste</button>
+    </div>
   </div>
 
   <div class="progress">
@@ -344,7 +421,6 @@
     <h2 id="resultsTitle">Résultats</h2>
   </div>
 
-  <!-- CHANGELOG: Results metrics simplified (removed Score moyen & Validées). -->
   <div class="metrics">
     <div class="metric">
       <div class="metric-label">Note /20</div>
@@ -394,6 +470,7 @@
 
 
 <!-- Anti-cache v9 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="ui.js?v=9"></script>
 <script src="auth.js?v=9"></script>

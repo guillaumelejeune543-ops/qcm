@@ -20,7 +20,6 @@ const state = {
   current: 0,
   answers: {},          // {idx: {type, payload}}
   validated: {},        // {idx: {score, errors}}
-  flagged: new Set(),
   finished: false
 };
 
@@ -35,7 +34,11 @@ Contraintes OBLIGATOIRES :
 - Reponse en JSON STRICT (aucun texte hors JSON)
 - 80% questions type "multi" et 20% type "tf"
 - Toujours 5 propositions/items A->E
-- Les questions "multi" peuvent parfois avoir 1 seule bonne reponse (rarement).
+- Pour chaque question "multi", choisis un nombre de bonnes reponses ALEATOIRE entre 1 et 5 (distribution uniforme, sans preference).
+- Repartitionne les lettres de reponses correctes de facon EQUILIBREE sur l'ensemble du QCM (eviter que les bonnes reponses soient souvent A/B/C).
+- Interdiction de pattern : ne pas reutiliser la meme combinaison de lettres de bonnes reponses sur plusieurs questions consecutives.
+- Repartition EQUILIBREE du nombre de bonnes reponses : sur l'ensemble du QCM, 1, 2, 3, 4, 5 bonnes reponses doivent apparaitre de maniere proche (ecart max 2 entre categories). Eviter la sur-repetition de 3.
+- Equilibre des lettres correctes : sur l'ensemble du QCM, chaque lettre A/B/C/D/E doit apparaitre un nombre proche de fois parmi les bonnes reponses (eviter que A revienne trop souvent).
 
 Format JSON attendu :
 {
@@ -72,6 +75,13 @@ function clampPromptCount(count) {
   if (!Number.isFinite(count)) return 30;
   const n = Math.floor(count);
   return Math.min(40, Math.max(1, n));
+}
+
+// CHANGELOG: Clamp helper for timer seconds input (max 200).
+function clampTimerPerQuestionCount(count) {
+  if (!Number.isFinite(count)) return 90;
+  const n = Math.floor(count);
+  return Math.min(200, Math.max(5, n));
 }
 
 function buildPromptText(count) {
@@ -282,7 +292,6 @@ function loadQuestionsFromJsonText(text) {
     state.current = 0;
     state.answers = {};
     state.validated = {};
-    state.flagged = new Set();
     state.finished = false;
     state.quizStartedAt = null;
     state.quizEndedAt = null;
@@ -377,10 +386,6 @@ function renderQuiz() {
   updateTimerDisplay();
 
   renderProgress();
-
-  const isFlagged = state.flagged.has(idx);
-  $("btnFlag").style.borderColor = isFlagged ? "rgba(255,204,102,.65)" : "";
-  $("btnFlag").textContent = isFlagged ? "Marquee" : "A revoir";
 
   const card = $("questionCard");
   card.innerHTML = "";
@@ -582,7 +587,7 @@ function computeFinalMetrics() {
   }
   const mean = sum / n;
   const note20 = mean * 20;
-  return { mean, note20, done, flagged: state.flagged.size };
+  return { mean, note20, done };
 }
 
 async function saveRunIfAuthed() {
@@ -598,7 +603,6 @@ async function saveRunIfAuthed() {
     questions: state.questions,
     answers: state.answers,
     validated: state.validated,
-    flagged: Array.from(state.flagged)
   };
   await insertQuizRun(payload);
 }
@@ -609,6 +613,7 @@ function renderResults(filter="all") {
     return;
   }
 
+  // CHANGELOG: Metrics now show Note/Temps total/Temps par question only.
   const metrics = computeFinalMetrics();
   const resultsTitle = $("resultsTitle");
   if (resultsTitle) {
@@ -616,10 +621,7 @@ function renderResults(filter="all") {
   }
   const elapsedSec = state.quizStartedAt ? Math.max(0, Math.floor(((state.quizEndedAt || Date.now()) - state.quizStartedAt) / 1000)) : 0;
   const avgPerQ = state.questions.length ? Math.round(elapsedSec / state.questions.length) : 0;
-  $("metricMean").textContent = metrics.mean.toFixed(2);
   $("metric20").textContent = format1(metrics.note20);
-  $("metricDone").textContent = `${metrics.done}/${state.questions.length}`;
-  $("metricFlag").textContent = `${metrics.flagged}`;
   const el = $("metricTimeTotal");
   if (el) el.textContent = elapsedSec ? formatTime(elapsedSec) : "--:--";
   const elAvg = $("metricTimeAvg");
@@ -631,16 +633,13 @@ function renderResults(filter="all") {
   for (let i=0;i<state.questions.length;i++){
     const q = state.questions[i];
     const v = state.validated[i];
-    const isFlag = state.flagged.has(i);
-
     const score = v ? v.score : 0.0;
     const errors = v ? v.errors : null;
 
     const isWrong = v ? (v.errors >= 1) : true; // non valide = considere erreur
     const shouldShow =
       filter === "all" ||
-      (filter === "wrong" && isWrong) ||
-      (filter === "flag" && isFlag);
+      (filter === "wrong" && isWrong);
 
     if (!shouldShow) continue;
 
@@ -659,20 +658,14 @@ function renderResults(filter="all") {
 
     const tagScore = document.createElement("span");
     const tagType = document.createElement("span");
-    const tagFlag = document.createElement("span");
-
     tagScore.className = "tag " + (score === 1.0 ? "ok" : (score >= 0.2 ? "warn" : "bad"));
     tagScore.textContent = `score ${score}`;
 
     tagType.className = "tag";
     tagType.textContent = errors === null ? "non validee" : `${errors} erreur(s)`;
 
-    tagFlag.className = "tag" + (isFlag ? " warn" : "");
-    tagFlag.textContent = isFlag ? "Flag" : "";
-
     tags.appendChild(tagScore);
     tags.appendChild(tagType);
-    if (isFlag) tags.appendChild(tagFlag);
 
     head.appendChild(left);
     head.appendChild(tags);
@@ -703,7 +696,6 @@ function restartWithQuestions(questions) {
   state.current = 0;
   state.answers = {};
   state.validated = {};
-  state.flagged = new Set();
   state.finished = false;
   state.quizStartedAt = null;
   state.quizEndedAt = null;
@@ -727,14 +719,6 @@ function restartWrongCurrent() {
   restartWithQuestions(wrongQs);
 }
 
-function restartFlaggedCurrent() {
-  const qs = state.questions || [];
-  if (!qs.length) return restartWithQuestions([]);
-  const flaggedIdx = Array.from(state.flagged || []);
-  const flaggedQs = flaggedIdx.map(i => qs[i]).filter(Boolean);
-  restartWithQuestions(flaggedQs);
-}
-
 function buildCorrectionBlock(i) {
   return buildCorrectionFromData({
     question: state.questions[i],
@@ -753,7 +737,6 @@ function openQuestionGrid() {
     btn.textContent = (i+1);
 
     if (state.validated[i]) btn.classList.add("done");
-    if (state.flagged.has(i)) btn.classList.add("flag");
     if (i === state.current) btn.classList.add("current");
 
     btn.addEventListener("click", () => {
@@ -970,15 +953,40 @@ function init() {
     updateTimerDisplay();
   });
 
-  $("timerPerQuestion").addEventListener("input", (e) => {
-    const v = parseInt(e.target.value, 10);
-    state.timerPerQuestion = Number.isFinite(v) && v > 0 ? v : 90;
+  const timerPerQuestionEl = $("timerPerQuestion");
+  const applyTimerPerQuestion = (raw, forceClamp) => {
+    // CHANGELOG: Allow free typing; clamp only on blur (max 200).
+    const v = parseInt(raw, 10);
+    if (!Number.isFinite(v)) {
+      if (forceClamp) {
+        const next = clampTimerPerQuestionCount(90);
+        timerPerQuestionEl.value = String(next);
+        state.timerPerQuestion = next;
+        initTimerForQuestions();
+        if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
+          startTimer();
+        }
+        updateTimerDisplay();
+      }
+      return;
+    }
+    const next = forceClamp ? clampTimerPerQuestionCount(v) : Math.floor(v);
+    if (forceClamp) timerPerQuestionEl.value = String(next);
+    state.timerPerQuestion = next;
     initTimerForQuestions();
     if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
       startTimer();
     }
     updateTimerDisplay();
-  });
+  };
+  if (timerPerQuestionEl) {
+    timerPerQuestionEl.addEventListener("input", (e) => {
+      applyTimerPerQuestion(e.target.value, false);
+    });
+    timerPerQuestionEl.addEventListener("blur", (e) => {
+      applyTimerPerQuestion(e.target.value, true);
+    });
+  }
 
   // copy prompt
   $("btnCopyPrompt").addEventListener("click", async () => {
@@ -989,13 +997,68 @@ function init() {
 
   const promptCountEl = $("promptQuestionCount");
   if (promptCountEl) {
-    promptCountEl.addEventListener("input", (e) => {
-      const v = parseInt(e.target.value, 10);
-      const next = clampPromptCount(v);
-      e.target.value = String(next);
+    // CHANGELOG: Allow free typing; clamp only on blur.
+    const applyPromptCount = (raw, forceClamp) => {
+      const v = parseInt(raw, 10);
+      if (!Number.isFinite(v)) {
+        if (forceClamp) {
+          const next = clampPromptCount(30);
+          promptCountEl.value = String(next);
+          $("promptBox").textContent = buildPromptText(next);
+        }
+        return;
+      }
+      const next = forceClamp ? clampPromptCount(v) : Math.floor(v);
+      if (forceClamp) promptCountEl.value = String(next);
       $("promptBox").textContent = buildPromptText(next);
+    };
+
+    promptCountEl.addEventListener("input", (e) => {
+      applyPromptCount(e.target.value, false);
+    });
+    promptCountEl.addEventListener("blur", (e) => {
+      applyPromptCount(e.target.value, true);
     });
   }
+
+  // prompt count dropdown
+  // CHANGELOG: Custom dropdown with animation (10/20/30/40).
+  const setupSelectMenu = (wrapId, toggleId, menuId, onPick) => {
+    const wrap = $(wrapId);
+    const toggle = $(toggleId);
+    const menu = $(menuId);
+    if (!wrap || !toggle || !menu) return;
+    const closeMenu = () => menu.classList.remove("open");
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.classList.toggle("open");
+    });
+    menu.querySelectorAll(".select-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const v = parseInt(btn.dataset.value || "", 10);
+        onPick(v);
+        closeMenu();
+      });
+    });
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(`#${wrapId}`)) closeMenu();
+    });
+  };
+
+  setupSelectMenu("promptCountWrap", "promptCountToggle", "promptCountMenu", (v) => {
+    const next = clampPromptCount(v);
+    promptCountEl.value = String(next);
+    promptCountEl.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+
+  // CHANGELOG: Timer seconds dropdown presets (30/60/90/120).
+  setupSelectMenu("timerPerQuestionWrap", "timerPerQuestionToggle", "timerPerQuestionMenu", (v) => {
+    const next = clampTimerPerQuestionCount(v);
+    if (timerPerQuestionEl) {
+      timerPerQuestionEl.value = String(next);
+      applyTimerPerQuestion(String(next), true);
+    }
+  });
 
   // load JSON from textarea
   $("btnLoadJson").addEventListener("click", () => {
@@ -1032,13 +1095,6 @@ function init() {
     goStep("results");
   });
 
-  $("btnFlag").addEventListener("click", () => {
-    const i = state.current;
-    if (state.flagged.has(i)) state.flagged.delete(i);
-    else state.flagged.add(i);
-    renderQuiz();
-  });
-
   $("btnReview").addEventListener("click", () => openQuestionGrid());
 
   // modal close
@@ -1050,31 +1106,10 @@ function init() {
   // results filters
   $("btnShowAll").addEventListener("click", () => renderResults("all"));
   $("btnShowWrong").addEventListener("click", () => renderResults("wrong"));
-  $("btnShowFlag").addEventListener("click", () => renderResults("flag"));
-
-  // export results
-  $("btnExportResults").addEventListener("click", () => {
-    const payload = {
-      generated_at: new Date().toISOString(),
-      mode: state.mode,
-      metrics: computeFinalMetrics(),
-      questions: state.questions,
-      answers: state.answers,
-      validated: state.validated,
-      flagged: Array.from(state.flagged)
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "resultats_qcm_las.json";
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
 
   $("btnBackToSetup").addEventListener("click", () => goStep("setup"));
   $("btnRestartAll").addEventListener("click", () => restartAllCurrent());
   $("btnRestartWrong").addEventListener("click", () => restartWrongCurrent());
-  $("btnRestartFlagged").addEventListener("click", () => restartFlaggedCurrent());
 
   // theme toggle
   $("btnTheme").addEventListener("click", () => {

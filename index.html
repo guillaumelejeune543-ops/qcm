@@ -233,7 +233,11 @@
 
       <!-- MODE -->
       <div class="field">
-        <label class="label">Mode</label>
+        <!-- CHANGELOG: Info tooltip for mode explanation added. -->
+        <div class="label-row">
+          <label class="label">Mode</label>
+          <button class="info-tip" type="button" aria-label="Informations sur les modes" data-tip="Examen : correction à la fin du QCM.&#10;Entraînement : correction disponible après chaque question.">i</button>
+        </div>
         <div class="segmented">
           <button class="seg active" data-mode="exam">Examen</button>
           <button class="seg" data-mode="train">Entraînement</button>
@@ -242,7 +246,7 @@
 
       <!-- TIMER -->
       <div class="field">
-        <label class="label">Minuteur (mode Examen)</label>
+        <label class="label">Minuteur </label>
         <div class="toggle">
           <input id="timerToggle" type="checkbox" checked />
           <label for="timerToggle">
@@ -250,8 +254,20 @@
           </label>
         </div>
         <div class="row" style="margin-top:8px;">
+          <!-- CHANGELOG: Custom dropdown presets for timer seconds (30/60/90/120), input remains editable. -->
           <label class="label" style="margin:0;">Secondes / question</label>
-          <input id="timerPerQuestion" class="select" type="number" min="5" step="5" value="90" />
+          <div class="select-wrap" id="timerPerQuestionWrap">
+            <input id="timerPerQuestion" class="select" type="number" min="5" max="200" step="5" value="90" />
+            <button id="timerPerQuestionToggle" class="btn btn-ghost icon-btn select-toggle" type="button" aria-label="Choisir un temps">
+              <span class="icon">▾</span>
+            </button>
+            <div id="timerPerQuestionMenu" class="select-menu" role="listbox" aria-label="Presets de secondes">
+              <button class="select-item" type="button" data-value="30">30</button>
+              <button class="select-item" type="button" data-value="60">60</button>
+              <button class="select-item" type="button" data-value="90">90</button>
+              <button class="select-item" type="button" data-value="120">120</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -262,7 +278,19 @@
         <button id="btnCopyPrompt" class="btn btn-secondary">Copier le prompt</button>
         <div class="row">
           <label class="label" style="margin:0;">Questions</label>
-          <input id="promptQuestionCount" class="select" type="number" min="1" max="40" step="1" value="30" />
+          <!-- CHANGELOG: Custom dropdown presets for question count (10/20/30/40), input remains editable. -->
+          <div class="select-wrap" id="promptCountWrap">
+            <input id="promptQuestionCount" class="select" type="number" min="1" max="40" step="1" value="30" />
+            <button id="promptCountToggle" class="btn btn-ghost icon-btn select-toggle" type="button" aria-label="Choisir un nombre">
+              <span class="icon">▾</span>
+            </button>
+            <div id="promptCountMenu" class="select-menu" role="listbox" aria-label="Presets de questions">
+              <button class="select-item" type="button" data-value="10">10</button>
+              <button class="select-item" type="button" data-value="20">20</button>
+              <button class="select-item" type="button" data-value="30">30</button>
+              <button class="select-item" type="button" data-value="40">40</button>
+            </div>
+          </div>
         </div>
       </div>
       <pre id="promptBox" class="pre"></pre>
@@ -279,11 +307,10 @@
       <h2>Passage du QCM</h2>
       <p class="muted" id="quizMeta"></p>
     </div>
-    <div class="quiz-tools">
-      <div id="timerDisplay" class="badge">--:--</div>
-      <button id="btnFlag" class="btn btn-ghost">Marquer</button>
-      <button id="btnReview" class="btn btn-ghost">Liste</button>
-    </div>
+        <div class="quiz-tools">
+          <div id="timerDisplay" class="badge">--:--</div>
+          <button id="btnReview" class="btn btn-ghost">Liste</button>
+        </div>
   </div>
 
   <div class="progress">
@@ -317,22 +344,11 @@
     <h2 id="resultsTitle">Résultats</h2>
   </div>
 
+  <!-- CHANGELOG: Results metrics simplified (removed Score moyen & Validées). -->
   <div class="metrics">
-    <div class="metric">
-      <div class="metric-label">Score moyen</div>
-      <div class="metric-value" id="metricMean">&mdash;</div>
-    </div>
     <div class="metric">
       <div class="metric-label">Note /20</div>
       <div class="metric-value" id="metric20">&mdash;</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Validées</div>
-      <div class="metric-value" id="metricDone">&mdash;</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">Marquées</div>
-      <div class="metric-value" id="metricFlag">&mdash;</div>
     </div>
     <div class="metric">
       <div class="metric-label">Temps total</div>
@@ -348,9 +364,7 @@
     <div class="row">
       <button id="btnShowAll" class="btn btn-secondary">Tout</button>
       <button id="btnShowWrong" class="btn btn-secondary">Erreurs</button>
-      <button id="btnShowFlag" class="btn btn-secondary">Marquées</button>
     </div>
-    <button id="btnExportResults" class="btn btn-ghost">Exporter JSON</button>
   </div>
 
   <div id="resultsList" class="results"></div>
@@ -358,7 +372,6 @@
   <div class="row">
     <button id="btnRestartAll" class="btn btn-primary">Recommencer tout le QCM</button>
     <button id="btnRestartWrong" class="btn btn-secondary">Recommencer les erreurs</button>
-    <button id="btnRestartFlagged" class="btn btn-secondary">Recommencer les marquées</button>
     <button id="btnBackToSetup" class="btn btn-secondary">Nouveau QCM</button>
   </div>
 </section>

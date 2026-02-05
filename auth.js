@@ -547,9 +547,10 @@ async function openHistory() {
   wrap.appendChild(loading);
   showModal("Historique QCM", wrap);
 
+  // CHANGELOG: History no longer includes "flagged" (feature removed).
   const { data, error } = await supabaseClient
     .from(QUIZ_RUNS_TABLE)
-    .select("id, created_at, mode, title, metrics, questions, answers, validated, flagged")
+    .select("id, created_at, mode, title, metrics, questions, answers, validated")
     .eq("user_id", state.user.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -635,17 +636,6 @@ function buildHistoryDetails(row) {
   });
   actions.appendChild(btnAll);
   actions.appendChild(btnWrong);
-  const btnFlag = document.createElement("button");
-  btnFlag.className = "btn btn-secondary";
-  btnFlag.textContent = "Recommencer les marquées";
-  btnFlag.addEventListener("click", () => {
-    hideModal();
-    const qs = Array.isArray(row.questions) ? row.questions : [];
-    const flagged = Array.isArray(row.flagged) ? row.flagged : [];
-    const flaggedQs = flagged.map(i => qs[i]).filter(Boolean);
-    restartWithQuestions(flaggedQs);
-  });
-  actions.appendChild(btnFlag);
   wrap.appendChild(actions);
 
   const qList = Array.isArray(row.questions) ? row.questions : [];

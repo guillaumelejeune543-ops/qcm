@@ -215,7 +215,7 @@
 <!-- SETUP -->
 <section id="view-setup" class="card view">
   <div class="card-header">
-    <h2>Charger un QCM</h2>
+    <h2 id="currentContextTitle">Matiere · Chapitre</h2>
   </div>
 
   <div class="grid-2">
@@ -223,7 +223,7 @@
     <!-- JSON / PDF INPUT -->
     <div class="panel">
       <div id="chapterStats" class="stats-cards">
-        <div class="stat-card">
+        <div id="qcmCountCard" class="stat-card clickable" role="button" tabindex="0">
           <div class="stat-label">QCM disponibles</div>
           <div id="qcmCount" class="stat-value">0</div>
         </div>
@@ -345,6 +345,26 @@
           <div id="cardPlaceholderTitle" class="placeholder-title">En construction</div>
           <div id="cardPlaceholderText" class="muted">Cette section arrive bientôt.</div>
         </div>
+      </div>
+
+      <div id="qcmView" class="mode-view hidden">
+        <h3>QCM</h3>
+        <div class="field">
+          <label class="label">Nombre de questions</label>
+          <input id="qcmQuestionCount" class="select" type="number" min="1" max="60" step="1" value="30" />
+        </div>
+        <div class="field">
+          <label class="label">Difficulté</label>
+          <select id="qcmDifficulty" class="select">
+            <option value="facile">Facile</option>
+            <option value="moyen" selected>Moyen</option>
+            <option value="difficile">Difficile</option>
+          </select>
+        </div>
+        <div class="row" style="padding:0;">
+          <button id="btnGenerateQcm" class="btn btn-primary">Générer le QCM</button>
+        </div>
+        <div id="qcmMsg" class="msg"></div>
       </div>
 
       <div id="jsonBlock" class="mode-view hidden">

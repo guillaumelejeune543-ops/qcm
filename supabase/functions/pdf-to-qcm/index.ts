@@ -29,6 +29,7 @@ function buildSchema() {
               additionalProperties: false,
               properties: {
                 type: { type: "string", const: "multi" },
+                difficulty: { type: "string" },
                 question: { type: "string" },
                 options: { type: "array", minItems: 5, maxItems: 5, items: { type: "string" } },
                 answer_indices: { type: "array", minItems: 1, maxItems: 5, items: { type: "integer", minimum: 0, maximum: 4 } },
@@ -48,13 +49,14 @@ function buildSchema() {
                   }
                 }
               },
-              required: ["type", "question", "options", "answer_indices", "explanation", "evidence"]
+              required: ["type", "difficulty", "question", "options", "answer_indices", "explanation", "evidence"]
             },
             {
               type: "object",
               additionalProperties: false,
               properties: {
                 type: { type: "string", const: "tf" },
+                difficulty: { type: "string" },
                 question: { type: "string" },
                 items: { type: "array", minItems: 5, maxItems: 5, items: { type: "string" } },
                 truth: { type: "array", minItems: 5, maxItems: 5, items: { type: "boolean" } },
@@ -74,7 +76,7 @@ function buildSchema() {
                   }
                 }
               },
-              required: ["type", "question", "items", "truth", "explanation", "evidence"]
+              required: ["type", "difficulty", "question", "items", "truth", "explanation", "evidence"]
             }
           ]
         }
@@ -208,7 +210,7 @@ serve(async (req) => {
     hasFileId: !!body?.openai_file_id,
     fileName: body?.fileName || null
   });
-  const { pdfUrl, titleHint, questionCount, openai_file_id, fileName } = body || {};
+  const { pdfUrl, titleHint, questionCount, difficulty, openai_file_id, fileName } = body || {};
   if (!pdfUrl && !openai_file_id) {
     return new Response(JSON.stringify({ error: "pdfUrl manquant" }), {
       status: 400,
@@ -257,7 +259,8 @@ serve(async (req) => {
   const schema = buildSchema();
   const hint = titleHint ? `Titre suggere: ${titleHint}.` : "";
   const countLine = questionCount ? `Genere ${questionCount} questions.` : "Genere un nombre raisonnable de questions (entre 10 et 25).";
-  const instructions = `Tu es un enseignant LAS. Genere un QCM STRICTEMENT base sur le PDF fourni.\n\nContraintes:\n- Langue: francais\n- Aucun contenu invente\n- 80% questions type \"multi\" et 20% type \"tf\"\n- Toujours 5 propositions/items A->E\n- options/items commencent par \"A ", \"B ", \"C ", \"D ", \"E \"\n- evidence doit toujours etre un tableau (peut etre vide) avec 0 a 3 extraits courts\n${countLine}\n${hint}\n\nNe renvoie que le JSON valide conforme au schema.`;
+  const diffLine = difficulty ? `Difficulte: ${difficulty}.` : "";
+  const instructions = `Tu es un enseignant LAS. Genere un QCM STRICTEMENT base sur le PDF fourni.\n\nContraintes:\n- Langue: francais\n- Aucun contenu invente\n- 80% questions type \"multi\" et 20% type \"tf\"\n- Toujours 5 propositions/items A->E\n- options/items commencent par \"A ", \"B ", \"C ", \"D ", \"E \"\n- evidence doit toujours etre un tableau (peut etre vide) avec 0 a 3 extraits courts\n- chaque question doit avoir une difficulty parmi: facile, moyen, difficile\n${countLine}\n${diffLine}\n${hint}\n\nNe renvoie que le JSON valide conforme au schema.`;
 
   const payload = {
     model: MODEL,

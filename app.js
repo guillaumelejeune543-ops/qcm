@@ -46,6 +46,7 @@ Format JSON attendu :
   "questions": [
     {
       "type": "multi",
+      "difficulty": "facile",
       "question": "Parmi les propositions suivantes, ...",
       "options": ["A ...","B ...","C ...","D ...","E ..."],
       "answer_indices": [1,3],
@@ -54,6 +55,7 @@ Format JSON attendu :
     },
     {
       "type": "tf",
+      "difficulty": "moyen",
       "question": "Concernant ...",
       "items": ["A ...","B ...","C ...","D ...","E ..."],
       "truth": [true,false,true,false,false],
@@ -67,6 +69,7 @@ Regles :
 - options/items doivent commencer exactement par "A ", "B ", "C ", "D ", "E "
 - answer_indices contient des indices 0..4
 - truth contient 5 booleens
+- difficulty doit être "facile", "moyen" ou "difficile" pour chaque question
 - explanation est en francais, ne doit pas ajouter d'informations hors cours, et se termine par un resume des bonnes reponses par lettres (ex: "Reponses: ABC")
 - evidence est optionnel mais recommande (1 a 3 extraits)
 `;
@@ -211,6 +214,9 @@ function validateQuestion(q, idx) {
   if (!q || typeof q !== "object") throw new Error(baseErr("objet invalide"));
 
   if (!["multi","tf"].includes(q.type)) throw new Error(baseErr("type doit etre 'multi' ou 'tf'"));
+  if (!["facile","moyen","difficile"].includes(q.difficulty)) {
+    throw new Error(baseErr("difficulty doit etre 'facile', 'moyen' ou 'difficile'"));
+  }
   if (typeof q.question !== "string" || q.question.trim().length < 5) throw new Error(baseErr("question trop courte"));
   if (typeof q.explanation !== "string") q.explanation = "";
 
@@ -717,6 +723,41 @@ function restartWrongCurrent() {
   restartWithQuestions(wrongQs);
 }
 
+async function launchQcmFromBank(difficulty, count, msgEl) {
+  if (typeof window.fetchQcmQuestions !== "function") {
+    if (msgEl) setMsg(msgEl, "err", "Fonction indisponible.");
+    return;
+  }
+  let all = [];
+  if (difficulty === "mix") {
+    const [a, b, c] = await Promise.all([
+      window.fetchQcmQuestions("facile"),
+      window.fetchQcmQuestions("moyen"),
+      window.fetchQcmQuestions("difficile")
+    ]);
+    all = [...a, ...b, ...c];
+  } else {
+    all = await window.fetchQcmQuestions(difficulty);
+  }
+  if (!all.length) {
+    if (msgEl) setMsg(msgEl, "warn", "Aucune question disponible.");
+    return;
+  }
+  let picked = all;
+  if (count !== "all") {
+    const n = parseInt(count, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      if (msgEl) setMsg(msgEl, "warn", "Nombre invalide.");
+      return;
+    }
+    const shuffled = all.slice().sort(() => Math.random() - 0.5);
+    picked = shuffled.slice(0, Math.min(n, shuffled.length));
+  }
+  if (msgEl) clearMsg(msgEl);
+  restartWithQuestions(picked);
+  hideModal();
+}
+
 function buildCorrectionBlock(i) {
   return buildCorrectionFromData({
     question: state.questions[i],
@@ -755,6 +796,7 @@ function openQuestionGrid() {
 const DEMO = [
   {
     "type": "multi",
+    "difficulty": "moyen",
     "question": "Parmi les propositions suivantes concernant le bareme LAS, lesquelles sont correctes ?",
     "options": [
       "A 0 erreur donne 1.0 point.",
@@ -769,6 +811,7 @@ const DEMO = [
   },
   {
     "type": "tf",
+    "difficulty": "facile",
     "question": "Concernant la structure des questions, chaque item A->E doit etre present.",
     "items": [
       "A Une question multi comporte 5 propositions A->E.",
@@ -1162,6 +1205,7 @@ function init() {
   // import cards (right panel)
   const jsonBlock = $("jsonBlock");
   const settingsView = $("settingsView");
+  const qcmView = $("qcmView");
   const cardPlaceholder = $("cardPlaceholder");
   const cardPlaceholderTitle = $("cardPlaceholderTitle");
   const cardPlaceholderText = $("cardPlaceholderText");
@@ -1171,6 +1215,7 @@ function init() {
     });
     if (mode === "settings") {
       jsonBlock?.classList.add("hidden");
+      qcmView?.classList.add("hidden");
       cardPlaceholder?.classList.add("hidden");
       settingsView?.classList.remove("hidden");
       return;
@@ -1178,9 +1223,15 @@ function init() {
     settingsView?.classList.add("hidden");
     if (mode === "json") {
       jsonBlock?.classList.remove("hidden");
+      qcmView?.classList.add("hidden");
+      cardPlaceholder?.classList.add("hidden");
+    } else if (mode === "qcm") {
+      jsonBlock?.classList.add("hidden");
+      qcmView?.classList.remove("hidden");
       cardPlaceholder?.classList.add("hidden");
     } else {
       jsonBlock?.classList.add("hidden");
+      qcmView?.classList.add("hidden");
       cardPlaceholder?.classList.remove("hidden");
       if (cardPlaceholderTitle) {
         const title = document.querySelector(`#importCards .mode-card[data-view="${mode}"] .mode-card-title`);
@@ -1211,10 +1262,190 @@ function init() {
     });
   });
 
+  const btnGenerateQcm = $("btnGenerateQcm");
+  if (btnGenerateQcm) btnGenerateQcm.addEventListener("click", async () => {
+    const countRaw = parseInt($("qcmQuestionCount")?.value || "30", 10);
+    const count = Number.isFinite(countRaw) ? Math.min(60, Math.max(1, countRaw)) : 30;
+    const diff = $("qcmDifficulty")?.value || "moyen";
+    const msg = $("qcmMsg");
+    if (msg) clearMsg(msg);
+    if (typeof window.generateQcmFromSelectedPdf !== "function") {
+      if (msg) setMsg(msg, "err", "Fonction QCM indisponible.");
+      return;
+    }
+    btnGenerateQcm.disabled = true;
+    await window.generateQcmFromSelectedPdf({ count, difficulty: diff, statusEl: msg });
+    btnGenerateQcm.disabled = false;
+  });
+
+  const qcmCountCard = $("qcmCountCard");
+  if (qcmCountCard) qcmCountCard.addEventListener("click", () => {
+    if (typeof window.getQcmCountsByDifficulty !== "function") return;
+    const counts = window.getQcmCountsByDifficulty();
+    const wrap = document.createElement("div");
+    wrap.className = "bank-modal";
+
+    const header = document.createElement("div");
+    header.className = "bank-head";
+    header.innerHTML = `
+      <div>
+        <div class="bank-title">QCM disponibles</div>
+        <div class="muted">Choisis une difficulté ou mélange-les.</div>
+      </div>
+    `;
+    wrap.appendChild(header);
+
+    const grid = document.createElement("div");
+    grid.className = "bank-grid";
+    grid.innerHTML = `
+      <div class="bank-card">
+        <div class="bank-card-label">Facile</div>
+        <div class="bank-card-value">${counts.facile}</div>
+      </div>
+      <div class="bank-card">
+        <div class="bank-card-label">Moyen</div>
+        <div class="bank-card-value">${counts.moyen}</div>
+      </div>
+      <div class="bank-card">
+        <div class="bank-card-label">Difficile</div>
+        <div class="bank-card-value">${counts.difficile}</div>
+      </div>
+    `;
+    wrap.appendChild(grid);
+
+    const controls = document.createElement("div");
+    controls.className = "bank-controls";
+    controls.innerHTML = `
+      <div class="bank-diff">
+        <label class="bank-radio"><input type="radio" name="diff" value="facile" checked /> Facile</label>
+        <label class="bank-radio"><input type="radio" name="diff" value="moyen" /> Moyen</label>
+        <label class="bank-radio"><input type="radio" name="diff" value="difficile" /> Difficile</label>
+        <label class="bank-check"><input id="bankMix" type="checkbox" /> Mélanger les difficultés</label>
+      </div>
+      <div class="bank-count">
+        <div class="bank-count-label">Nombre de questions</div>
+        <div class="bank-count-row">
+          <button id="bankMinus" class="btn btn-ghost" type="button">-</button>
+          <input id="bankQuestionCount" class="select" type="number" min="1" step="1" value="10" />
+          <button id="bankPlus" class="btn btn-ghost" type="button">+</button>
+        </div>
+        <div id="bankMaxInfo" class="muted"></div>
+      </div>
+    `;
+    wrap.appendChild(controls);
+
+    const msg = document.createElement("div");
+    msg.id = "bankMsg";
+    msg.className = "msg";
+    wrap.appendChild(msg);
+
+    const actions = document.createElement("div");
+    actions.className = "bank-actions";
+    const btnAll = document.createElement("button");
+    btnAll.className = "btn btn-secondary";
+    btnAll.textContent = "Lancer (tout)";
+    const btnN = document.createElement("button");
+    btnN.className = "btn btn-primary";
+    btnN.textContent = "Lancer (N)";
+    actions.appendChild(btnAll);
+    actions.appendChild(btnN);
+    wrap.appendChild(actions);
+
+    const getSelectedDiff = () => {
+      const checked = wrap.querySelector('input[name="diff"]:checked');
+      return checked ? checked.value : "facile";
+    };
+    const mixEl = () => $("bankMix");
+    const countEl = () => $("bankQuestionCount");
+    const maxEl = () => $("bankMaxInfo");
+    const minusEl = () => $("bankMinus");
+    const plusEl = () => $("bankPlus");
+    const setButtonsDisabled = (disabled) => {
+      btnAll.disabled = disabled;
+      btnN.disabled = disabled;
+      if (countEl()) countEl().disabled = disabled;
+      if (minusEl()) minusEl().disabled = disabled;
+      if (plusEl()) plusEl().disabled = disabled;
+    };
+    const setCountValue = (value) => {
+      if (!countEl()) return;
+      countEl().value = String(value);
+    };
+    const getCountValue = () => {
+      const value = parseInt(countEl()?.value || "0", 10);
+      return Number.isFinite(value) ? value : 0;
+    };
+    const updateMax = () => {
+      const mix = mixEl()?.checked;
+      const diff = getSelectedDiff();
+      const max = mix
+        ? (counts.facile + counts.moyen + counts.difficile)
+        : (counts[diff] || 0);
+      if (countEl()) {
+        countEl().max = String(Math.max(1, max));
+        countEl().min = max === 0 ? "0" : "1";
+      }
+      let cur = getCountValue();
+      if (cur < 1) cur = 1;
+      if (cur > max && max > 0) cur = max;
+      if (max === 0) cur = 0;
+      setCountValue(cur);
+      if (maxEl()) maxEl().textContent = max ? `max ${max}` : "aucune question";
+      setButtonsDisabled(max === 0);
+      if (max === 0 && msg) setMsg(msg, "err", "Aucune question disponible pour ce choix.");
+      if (max > 0 && msg) clearMsg(msg);
+    };
+
+    wrap.querySelectorAll('input[name="diff"]').forEach(r => {
+      r.addEventListener("change", updateMax);
+    });
+    const mix = mixEl();
+    if (mix) mix.addEventListener("change", () => {
+      const disabled = mix.checked;
+      wrap.querySelectorAll('input[name="diff"]').forEach(r => {
+        r.disabled = disabled;
+      });
+      updateMax();
+    });
+    if (countEl()) {
+      countEl().addEventListener("input", updateMax);
+    }
+    if (minusEl()) minusEl().addEventListener("click", () => {
+      const max = parseInt(countEl()?.max || "1", 10);
+      const next = Math.max(1, getCountValue() - 1);
+      if (max > 0) setCountValue(Math.min(next, max));
+      updateMax();
+    });
+    if (plusEl()) plusEl().addEventListener("click", () => {
+      const max = parseInt(countEl()?.max || "1", 10);
+      const next = getCountValue() + 1;
+      if (max > 0) setCountValue(Math.min(next, max));
+      updateMax();
+    });
+    updateMax();
+
+    btnAll.addEventListener("click", async () => {
+      const diff = mixEl()?.checked ? "mix" : getSelectedDiff();
+      await launchQcmFromBank(diff, "all", msg);
+    });
+    btnN.addEventListener("click", async () => {
+      const diff = mixEl()?.checked ? "mix" : getSelectedDiff();
+      const n = parseInt(countEl()?.value || "0", 10);
+      await launchQcmFromBank(diff, n, msg);
+    });
+
+    showModal("QCM disponibles", wrap);
+  });
+
   // load JSON from textarea
   $("btnLoadJson").addEventListener("click", () => {
     const ok = loadQuestionsFromJsonText($("jsonInput").value.trim());
-    if (ok) goStep("quiz");
+    if (ok) {
+      if (typeof window.saveQcmQuestionsToBank === "function") {
+        window.saveQcmQuestionsToBank(state.questions);
+      }
+      goStep("quiz");
+    }
   });
 
   // demo

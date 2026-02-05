@@ -7,7 +7,7 @@ const QCM_FUNCTION_URL = window.QCM_FUNCTION_URL || `${SUPABASE_URL}/functions/v
 const PDF_INDEX_TABLE = "pdf_index";
 const MATIERES_TABLE = "matieres";
 const CHAPITRES_TABLE = "chapitres";
-const QCM_SETS_TABLE = "qcm_sets";
+const QCM_QUESTIONS_TABLE = "qcm_questions";
 const FLASH_SETS_TABLE = "flash_sets";
 
 var supabaseClient = window.supabaseClient || (window.supabaseClient = window.supabase.createClient(
@@ -40,6 +40,7 @@ let pdfThumbQueue = [];
 let pdfThumbRunning = 0;
 const PDF_THUMB_CONCURRENCY = 2;
 let pdfSignedUrlMap = new Map();
+let qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0 };
 
 function folderMsgEl() {
   return $("folderMsg") || $("pdfMsg");
@@ -111,14 +112,17 @@ function setCurrentChapitre(id, opts = {}) {
   if (pdfInput) pdfInput.disabled = !currentChapitreId;
 
   const title = $("pdfTitle");
+  const headerTitle = $("currentContextTitle");
   const chapTitle = $("chapitreTitle");
   const matiere = matieres.find(m => m.id === currentMatiereId);
   const chapitre = chapitres.find(c => c.id === currentChapitreId);
-  if (title) {
-    if (matiere && chapitre) title.textContent = `Matiere : ${matiere.name} · Chapitre : ${chapitre.name}`;
-    else if (matiere) title.textContent = `Matiere : ${matiere.name} · Chapitres`;
-    else title.textContent = "Chapitres et PDFs";
-  }
+  const contextLabel = matiere && chapitre
+    ? `Matiere : ${matiere.name} · Chapitre : ${chapitre.name}`
+    : matiere
+      ? `Matiere : ${matiere.name} · Chapitres`
+      : "Chapitres et PDFs";
+  if (title) title.textContent = contextLabel;
+  if (headerTitle) headerTitle.textContent = contextLabel;
   if (chapTitle) {
     chapTitle.textContent = matiere ? `Chapitres — ${matiere.name}` : "Chapitres";
   }
@@ -235,16 +239,38 @@ function setChapterCounts(qcmCount = 0, flashCount = 0) {
 
 async function loadChapterStats() {
   if (!state.user || !currentChapitreId) {
+    qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0 };
     setChapterCounts(0, 0);
     return;
   }
   try {
-    const { count: qcmCount, error: qcmErr } = await supabaseClient
-      .from(QCM_SETS_TABLE)
+    const { count: qcmFacile, error: qcmErr1 } = await supabaseClient
+      .from(QCM_QUESTIONS_TABLE)
       .select("id", { count: "exact", head: true })
       .eq("user_id", state.user.id)
-      .eq("chapitre_id", currentChapitreId);
-    if (qcmErr) console.error("loadChapterStats qcm error:", qcmErr);
+      .eq("chapitre_id", currentChapitreId)
+      .eq("difficulty", "facile");
+    const { count: qcmMoyen, error: qcmErr2 } = await supabaseClient
+      .from(QCM_QUESTIONS_TABLE)
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", state.user.id)
+      .eq("chapitre_id", currentChapitreId)
+      .eq("difficulty", "moyen");
+    const { count: qcmDiff, error: qcmErr3 } = await supabaseClient
+      .from(QCM_QUESTIONS_TABLE)
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", state.user.id)
+      .eq("chapitre_id", currentChapitreId)
+      .eq("difficulty", "difficile");
+    if (qcmErr1) console.error("loadChapterStats qcm facile error:", qcmErr1);
+    if (qcmErr2) console.error("loadChapterStats qcm moyen error:", qcmErr2);
+    if (qcmErr3) console.error("loadChapterStats qcm difficile error:", qcmErr3);
+    qcmCounts = {
+      facile: qcmFacile || 0,
+      moyen: qcmMoyen || 0,
+      difficile: qcmDiff || 0,
+      total: (qcmFacile || 0) + (qcmMoyen || 0) + (qcmDiff || 0)
+    };
 
     const { count: flashCount, error: flashErr } = await supabaseClient
       .from(FLASH_SETS_TABLE)
@@ -253,9 +279,10 @@ async function loadChapterStats() {
       .eq("chapitre_id", currentChapitreId);
     if (flashErr) console.error("loadChapterStats flash error:", flashErr);
 
-    setChapterCounts(qcmCount || 0, flashCount || 0);
+    setChapterCounts(qcmCounts.total || 0, flashCount || 0);
   } catch (err) {
     console.error("loadChapterStats error:", err);
+    qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0 };
     setChapterCounts(0, 0);
   }
 }
@@ -319,7 +346,7 @@ async function setFileChapitre(fileName, chapitreId) {
     .upsert({ user_id: state.user.id, file_name: fileName, chapitre_id: chapitreId }, { onConflict: "user_id,file_name" });
 }
 
-async function createQcmFromPdf(fileName) {
+async function createQcmFromPdf(fileName, options = {}) {
   if (!state.user) return setMsg($("pdfMsg"), "warn", "Connecte-toi d'abord.");
   setCurrentPdf(fileName);
   const status = $("pdfMsg");
@@ -346,7 +373,14 @@ async function createQcmFromPdf(fileName) {
         "Authorization": `Bearer ${accessToken}`,
         "apikey": SUPABASE_ANON
       },
-      body: JSON.stringify({ pdfUrl: urlData.signedUrl, titleHint, openai_file_id: openaiFileId, fileName })
+      body: JSON.stringify({
+        pdfUrl: urlData.signedUrl,
+        titleHint,
+        openai_file_id: openaiFileId,
+        fileName,
+        questionCount: options.questionCount,
+        difficulty: options.difficulty
+      })
     });
     const payload = await res.json().catch(() => ({}));
     if (!res.ok || !payload?.data) {
@@ -356,6 +390,13 @@ async function createQcmFromPdf(fileName) {
 
     if (payload.openai_file_id && payload.openai_file_id !== openaiFileId) {
       await saveOpenAiFileId(fileName, payload.openai_file_id);
+    }
+
+    if (currentChapitreId && Array.isArray(payload.data.questions)) {
+      await saveQuestionsToBank(payload.data.questions, {
+        source: "pdf",
+        title: payload.data.title || titleHint || "QCM"
+      });
     }
 
     const jsonText = JSON.stringify(payload.data, null, 2);
@@ -373,6 +414,77 @@ async function createQcmFromPdf(fileName) {
     setMsg(status, "err", "Erreur reseau ou serveur.");
   }
 }
+
+window.generateQcmFromSelectedPdf = async ({ count, difficulty, statusEl }) => {
+  if (!currentPdfName) {
+    if (statusEl) setMsg(statusEl, "warn", "Selectionne un PDF d'abord.");
+    return;
+  }
+  if (!currentChapitreId) {
+    if (statusEl) setMsg(statusEl, "warn", "Selectionne un chapitre d'abord.");
+    return;
+  }
+  if (!Number.isFinite(count) || count < 1 || count > 60) {
+    if (statusEl) setMsg(statusEl, "warn", "Nombre de questions invalide (1-60).");
+    return;
+  }
+  const diffOk = ["facile","moyen","difficile"].includes(difficulty);
+  if (!diffOk) {
+    if (statusEl) setMsg(statusEl, "warn", "Difficulte invalide.");
+    return;
+  }
+  if (statusEl) setMsg(statusEl, "warn", "Generation du QCM en cours...");
+  await createQcmFromPdf(currentPdfName, {
+    questionCount: count,
+    difficulty
+  });
+  if (statusEl) clearMsg(statusEl);
+};
+
+async function saveQuestionsToBank(questions, meta = {}) {
+  if (!state.user || !currentChapitreId || !Array.isArray(questions) || !questions.length) return;
+  const rows = questions.map(q => ({
+    user_id: state.user.id,
+    chapitre_id: currentChapitreId,
+    difficulty: q.difficulty || meta.difficulty || "moyen",
+    type: q.type || "multi",
+    question: q.question || "",
+    title: meta.title || null,
+    source: meta.source || "json",
+    payload: q
+  }));
+  const { error } = await supabaseClient.from(QCM_QUESTIONS_TABLE).insert(rows);
+  if (error) {
+    console.error("saveQuestionsToBank error:", error);
+  } else {
+    loadChapterStats();
+  }
+}
+
+window.saveQcmQuestionsToBank = async (questions) => {
+  if (!currentChapitreId) {
+    setMsg($("qcmMsg") || $("pdfMsg"), "warn", "Selectionne un chapitre d'abord.");
+    return;
+  }
+  await saveQuestionsToBank(questions, { source: "json" });
+};
+
+window.getQcmCountsByDifficulty = () => ({ ...qcmCounts });
+
+window.fetchQcmQuestions = async (difficulty) => {
+  if (!state.user || !currentChapitreId) return [];
+  const { data, error } = await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .select("payload")
+    .eq("user_id", state.user.id)
+    .eq("chapitre_id", currentChapitreId)
+    .eq("difficulty", difficulty);
+  if (error) {
+    console.error("fetchQcmQuestions error:", error);
+    return [];
+  }
+  return (data || []).map(r => r.payload).filter(Boolean);
+};
 
 async function getOpenAiFileId(fileName) {
   if (!state.user) return null;

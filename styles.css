@@ -117,6 +117,14 @@ input[type="number"]{
 .sidebar.collapsed .side-user{
   justify-content:center;
 }
+.sidebar.collapsed .side-account{
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 16px;
+  justify-content: center;
+  margin: 0 auto;
+}
 .side-brand{
   display:flex;
   align-items:center;
@@ -136,7 +144,13 @@ input[type="number"]{
 .side-sub{font-size:12px; color:var(--muted)}
 .side-actions{display:flex; flex-direction:column; gap:8px}
 .side-btn{width:100%; justify-content:center}
-.side-section-title{font-size:12px; color:var(--muted); margin-bottom:6px}
+.side-section-title{
+  font-size:13px;
+  color: color-mix(in srgb, var(--muted) 85%, #ffffff 15%);
+  margin-bottom:6px;
+  font-family:"Prata","Times New Roman",serif;
+  letter-spacing:.04em;
+}
 .side-section-head{
   display:flex;
   align-items:center;
@@ -145,18 +159,34 @@ input[type="number"]{
   margin-bottom:6px;
 }
 .side-section-head .icon-btn{
-  width:28px;
-  height:28px;
+  width:42px;
+  height:30px;
   padding:0;
+  border-radius: 999px;
+  outline: none;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.side-section-head .icon-btn:focus,
+.side-section-head .icon-btn:focus-visible,
+.side-section-head .icon-btn:active{
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 8px 18px color-mix(in srgb, var(--primary) 25%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
 }
 .side-list{
-  transition: max-height .25s ease, opacity .2s ease;
+  max-height: 320px;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transform-origin: top;
+  transition: max-height .28s ease, opacity .2s ease, transform .25s ease;
 }
 .side-list.collapsed{
   max-height: 0 !important;
   opacity: 0;
   pointer-events: none;
   overflow: hidden;
+  transform: translateY(-4px) scale(.98);
 }
 .chap-toggle .icon-svg{
   display:inline-flex;
@@ -168,13 +198,16 @@ input[type="number"]{
   color: var(--primary);
 }
 .chap-toggle.open .icon-svg{
-  transform: rotate(-90deg);
+  transform: rotate(180deg);
 }
 .chap-toggle:not(.open) .icon-svg{
-  transform: rotate(90deg);
+  transform: rotate(0deg);
 }
-.chap-toggle:hover .icon-svg{
-  transform: rotate(-90deg) scale(1.05);
+.chap-toggle.open:hover .icon-svg{
+  transform: rotate(0deg) scale(1.05);
+}
+.chap-toggle:not(.open):hover .icon-svg{
+  transform: rotate(180deg) scale(1.05);
 }
 .side-section-head .side-section-title{
   margin-bottom:0;
@@ -500,6 +533,8 @@ input[type="number"]{
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
+  font-weight: 700;
+  letter-spacing: .2px;
 }
 .drive-side-list .side-item .side-item-del{
   border:1px solid var(--border);
@@ -519,9 +554,13 @@ input[type="number"]{
   border-color: rgba(255,255,255,.2);
   background: rgba(255,255,255,.06);
 }
-.drive-side-list .side-item:hover{
-  background: rgba(40,198,161,.08);
-  border-color: rgba(40,198,161,.2);
+.drive-side-list .matiere-item:hover{
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.drive-side-list .chapitre-item:hover{
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
 }
 .drive-side-list .chapitre-item.active{
   background: color-mix(in srgb, var(--chapitre-color) 18%, transparent);
@@ -1251,6 +1290,38 @@ h3{margin:0 0 10px; font-family:"Prata","Times New Roman",serif; letter-spacing:
 .btn-ghost{
   background: transparent;
 }
+.side-section-head #btnAddChapitre{
+  background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 90%, #ffffff 10%), color-mix(in srgb, var(--primary-soft) 90%, #ffffff 10%));
+  border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+  color:#fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.35),
+    inset 0 -1px 0 color-mix(in srgb, var(--primary) 55%, transparent),
+    0 8px 18px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.side-section-head #btnSidePlus{
+  background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 90%, #ffffff 10%), color-mix(in srgb, var(--primary-soft) 90%, #ffffff 10%));
+  border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+  color:#fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.35),
+    inset 0 -1px 0 color-mix(in srgb, var(--primary) 55%, transparent),
+    0 8px 18px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.side-section-head #btnAddChapitre:focus-visible,
+.side-section-head #btnSidePlus:focus-visible{
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 8px 18px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.side-section-head #btnAddChapitre:hover,
+.side-section-head #btnSidePlus:hover{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.4),
+    inset 0 -1px 0 color-mix(in srgb, var(--primary) 65%, transparent),
+    0 10px 22px color-mix(in srgb, var(--primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 70%, transparent);
+  transform: translateY(-1px);
+}
 .file-btn input{display:none}
 
 .field{margin: 12px 0 18px}
@@ -1507,6 +1578,9 @@ body.auth-locked footer{
   border:1px solid var(--border);
   background: var(--chip);
   display:none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity .25s ease, transform .25s ease;
 }
 .notice{
   margin-top: 14px;
@@ -1646,9 +1720,16 @@ body.auth-locked footer{
   margin-top:auto;
 }
 .pdf-actions .btn{
-  padding: 6px 8px;
-  font-size: 11px;
-  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  border-radius: 10px;
+  font-weight: 700;
+  border-color: rgba(255,255,255,.22);
+  box-shadow: 0 6px 14px rgba(0,0,0,.14);
+}
+.pdf-actions .btn:hover{
+  border-color: rgba(255,255,255,.35);
+  box-shadow: 0 8px 18px rgba(0,0,0,.18);
 }
 .drive-header, .drive-row{
   display:grid;
@@ -1746,8 +1827,16 @@ body.auth-locked footer{
   margin: 6px 0;
   color: var(--muted);
 }
-.msg.show{display:block}
+.msg.show{
+  display:block;
+  opacity: 1;
+  transform: translateY(0);
+}
 .msg.ok{border-color: rgba(125,247,167,.35); background: rgba(125,247,167,.10)}
+.msg.ok{
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+}
 .msg.err{border-color: rgba(255,107,122,.40); background: rgba(255,107,122,.08)}
 .msg.warn{border-color: rgba(255,204,102,.45); background: rgba(255,204,102,.08)}
 #chapitreMsg{
@@ -1770,6 +1859,15 @@ body.auth-locked footer{
   color: var(--muted);
   line-height: 1.4;
   margin-bottom: 6px;
+}
+.confirm-pop{
+  animation: confirmPop .45s cubic-bezier(.2,.9,.2,1);
+  transform-origin: center;
+}
+@keyframes confirmPop{
+  0%{ opacity:0; transform: translateY(14px) scale(.94); }
+  60%{ opacity:1; transform: translateY(-2px) scale(1.02); }
+  100%{ opacity:1; transform: translateY(0) scale(1); }
 }
 .btn.btn-danger{
   background: linear-gradient(145deg, #ff6b7a, #e1576e);
@@ -2120,11 +2218,14 @@ body.no-chapter #pdfBlock{
 .modal{
   position:fixed;
   inset:0;
-  background: rgba(0,0,0,.45);
+  background: rgba(0,0,0,.65);
   display:grid;
   place-items:center;
   padding: 20px;
   z-index: 200;
+  opacity: 1;
+  backdrop-filter: blur(10px);
+  transition: opacity 3s cubic-bezier(.2,.8,.2,1), backdrop-filter 3s cubic-bezier(.2,.8,.2,1), background 3s cubic-bezier(.2,.8,.2,1);
 }
 .modal-content{
   width:min(900px, 96vw);
@@ -2135,6 +2236,8 @@ body.no-chapter #pdfBlock{
   border:1px solid var(--border);
   background: var(--card);
   box-shadow: var(--shadow);
+  transform: translateY(0) scale(1);
+  transition: transform 3s cubic-bezier(.34,1.56,.3,1), opacity 3s cubic-bezier(.16,.9,.2,1);
 }
 .modal-header{
   display:flex;
@@ -2392,7 +2495,17 @@ body.no-chapter #pdfBlock{
    FIX v5 : on force la modale cachee
    (utile si JS ne tourne pas)
 ------------------------------ */
-.modal.hidden { display: none !important; }
+.modal.hidden{
+  opacity:0;
+  visibility: hidden;
+  pointer-events: none;
+  backdrop-filter: blur(0px);
+  background: rgba(0,0,0,.3);
+}
+.modal.hidden .modal-content{
+  opacity:0;
+  transform: translateY(24px) scale(.94);
+}
 
 @media (max-width: 700px){
   .file-item{

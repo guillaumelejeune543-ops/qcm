@@ -605,7 +605,7 @@ async function deleteChapitre(id) {
 
 function confirmDeleteMatiere(matiereName, onConfirm) {
   const wrap = document.createElement("div");
-  wrap.className = "auth-card";
+  wrap.className = "auth-card confirm-pop";
 
   const title = document.createElement("div");
   title.className = "confirm-title";
@@ -644,7 +644,7 @@ function confirmDeleteMatiere(matiereName, onConfirm) {
 
 function confirmDeleteChapitre(chapitreName, onConfirm) {
   const wrap = document.createElement("div");
-  wrap.className = "auth-card";
+  wrap.className = "auth-card confirm-pop";
 
   const title = document.createElement("div");
   title.className = "confirm-title";
@@ -654,6 +654,45 @@ function confirmDeleteChapitre(chapitreName, onConfirm) {
   const desc = document.createElement("div");
   desc.className = "confirm-text";
   desc.textContent = `Le chapitre "${chapitreName}" et ses données associées seront supprimés.`;
+  wrap.appendChild(desc);
+
+  const actions = document.createElement("div");
+  actions.className = "row";
+  actions.style.padding = "0";
+  actions.style.marginTop = "10px";
+
+  const btnCancel = document.createElement("button");
+  btnCancel.className = "btn btn-ghost";
+  btnCancel.textContent = "Annuler";
+  btnCancel.addEventListener("click", hideModal);
+
+  const btnDelete = document.createElement("button");
+  btnDelete.className = "btn btn-danger";
+  btnDelete.textContent = "Supprimer";
+  btnDelete.addEventListener("click", () => {
+    hideModal();
+    onConfirm();
+  });
+
+  actions.appendChild(btnCancel);
+  actions.appendChild(btnDelete);
+  wrap.appendChild(actions);
+
+  showModal("Confirmation", wrap);
+}
+
+function confirmDeletePdf(fileName, onConfirm) {
+  const wrap = document.createElement("div");
+  wrap.className = "auth-card confirm-pop";
+
+  const title = document.createElement("div");
+  title.className = "confirm-title";
+  title.textContent = "Supprimer le PDF ?";
+  wrap.appendChild(title);
+
+  const desc = document.createElement("div");
+  desc.className = "confirm-text";
+  desc.textContent = `Le fichier "${fileName}" sera supprimé.`;
   wrap.appendChild(desc);
 
   const actions = document.createElement("div");
@@ -1058,10 +1097,20 @@ async function listUserPdfs() {
       });
     });
 
-    const thumb = document.createElement("div");
-    thumb.className = "pdf-thumb";
-    thumb.innerHTML = `<div class="thumb-loader"></div>`;
-    thumb.dataset.fileName = file.name;
+      const thumb = document.createElement("div");
+      thumb.className = "pdf-thumb";
+      thumb.innerHTML = `<div class="thumb-loader"></div>`;
+      thumb.dataset.fileName = file.name;
+      thumb.addEventListener("dblclick", async (e) => {
+        e.stopPropagation();
+        setCurrentPdf(file.name);
+        const { data: urlData, error: urlErr } = await supabaseClient
+          .storage
+          .from(FILES_BUCKET)
+          .createSignedUrl(`${state.user.id}/${file.name}`, 60);
+        if (urlErr) return setMsg($("pdfMsg"), "err", "Lien temporaire impossible.");
+        openPdfInModal(urlData.signedUrl, file.name);
+      });
 
     const name = document.createElement("div");
     name.className = "pdf-name";
@@ -1094,37 +1143,40 @@ async function listUserPdfs() {
     del.textContent = "Supprimer";
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (currentPdfName === file.name) setCurrentPdf(null);
-      if (!confirm("Supprimer ce PDF ?")) return;
-      let openaiId = await getOpenAiFileId(file.name);
-      const { error: delErr } = await supabaseClient
-        .storage
-        .from(FILES_BUCKET)
-        .remove([`${state.user.id}/${file.name}`]);
-      if (delErr) return setMsg($("pdfMsg"), "err", "Suppression impossible.");
-      if (openaiId) {
-        try {
-          const { data: refreshed } = await supabaseClient.auth.refreshSession();
-          const accessToken = refreshed.session?.access_token;
-          if (!accessToken) return;
-          await fetch(`${QCM_FUNCTION_URL}?file_id=${encodeURIComponent(openaiId)}`, {
-            method: "DELETE",
-            headers: {
-              "Authorization": `Bearer ${accessToken}`,
-              "apikey": SUPABASE_ANON
-            }
-          });
-        } catch {}
-      }
-      await supabaseClient
-        .from(PDF_INDEX_TABLE)
-        .delete()
-        .eq("user_id", state.user.id)
-        .eq("file_name", file.name);
-      hideModal();
-      item.remove();
-      setMsg($("pdfMsg"), "ok", "PDF supprimé.");
-      await listUserPdfs();
+      confirmDeletePdf(file.name || "PDF", async () => {
+        if (currentPdfName === file.name) setCurrentPdf(null);
+        let openaiId = await getOpenAiFileId(file.name);
+        const { error: delErr } = await supabaseClient
+          .storage
+          .from(FILES_BUCKET)
+          .remove([`${state.user.id}/${file.name}`]);
+        if (delErr) return setMsg($("pdfMsg"), "err", "Suppression impossible.");
+        if (openaiId) {
+          try {
+            const { data: refreshed } = await supabaseClient.auth.refreshSession();
+            const accessToken = refreshed.session?.access_token;
+            if (!accessToken) return;
+            await fetch(`${QCM_FUNCTION_URL}?file_id=${encodeURIComponent(openaiId)}`, {
+              method: "DELETE",
+              headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "apikey": SUPABASE_ANON
+              }
+            });
+          } catch {}
+        }
+        await supabaseClient
+          .from(PDF_INDEX_TABLE)
+          .delete()
+          .eq("user_id", state.user.id)
+          .eq("file_name", file.name);
+        hideModal();
+        item.remove();
+        const pdfMsg = $("pdfMsg");
+        setMsg(pdfMsg, "ok", "PDF supprimé.");
+        setTimeout(() => clearMsg(pdfMsg), 2200);
+        await listUserPdfs();
+      });
     });
 
     actions.appendChild(btn);
@@ -1168,7 +1220,9 @@ async function uploadPdf(file) {
     return setMsg($("pdfMsg"), "err", error.message || "Upload impossible.");
   }
   await setFileChapitre(safeName, currentChapitreId);
-  setMsg($("pdfMsg"), "ok", "PDF uploadé.");
+  const pdfMsg = $("pdfMsg");
+  setMsg(pdfMsg, "ok", "PDF uploadé.");
+  setTimeout(() => clearMsg(pdfMsg), 2200);
   await listUserPdfs();
 }
 

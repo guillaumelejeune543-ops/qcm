@@ -1595,8 +1595,8 @@ function init() {
     if (e.target === $("modal")) hideModal();
   });
 
-  const btnCloseInlinePdf = $("btnCloseInlinePdf");
-  if (btnCloseInlinePdf) btnCloseInlinePdf.addEventListener("click", () => {
+  const closeInlinePdf = () => {
+    document.body.classList.remove("pdf-immersive");
     const wrap = $("pdfInlineViewer");
     const frame = $("pdfInlineFrame");
     const list = $("pdfList");
@@ -1605,8 +1605,11 @@ function init() {
     if (list) list.classList.remove("hidden");
     const block = $("pdfBlock");
     if (block) block.classList.remove("viewer-only");
-  });
-
+  };
+  const btnCloseInlinePdf = $("btnCloseInlinePdf");
+  if (btnCloseInlinePdf) btnCloseInlinePdf.addEventListener("click", closeInlinePdf);
+  const btnBackToPdfList = $("btnBackToPdfList");
+  if (btnBackToPdfList) btnBackToPdfList.addEventListener("click", closeInlinePdf);
   // results filters
   $("btnShowAll").addEventListener("click", () => renderResults("all"));
   $("btnShowWrong").addEventListener("click", () => renderResults("wrong"));

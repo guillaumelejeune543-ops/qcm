@@ -240,6 +240,12 @@
 
     <!-- JSON / PDF INPUT -->
     <div id="leftPanel" class="panel">
+      <div id="noMatierePanel" class="no-chapter-panel no-chapter hidden">
+        Aucune matière. Clique sur + pour en creer une.
+      </div>
+      <div id="noChapterPanel" class="no-chapter-panel no-chapter hidden">
+        Aucun chapitre. Clique sur + pour en creer un.
+      </div>
       <div id="chapterStats" class="stats-cards">
         <div id="qcmCountCard" class="stat-card clickable" role="button" tabindex="0">
           <div class="stat-label">QCM disponibles</div>
@@ -259,11 +265,22 @@
         </div>
         <div id="pdfInlineViewer" class="pdf-inline hidden">
           <div class="pdf-inline-head">
-            <div id="pdfInlineTitle" class="pdf-inline-title">PDF</div>
-            <button id="btnCloseInlinePdf" class="btn btn-ghost" type="button">Fermer</button>
+            <div class="pdf-inline-title-row">
+              <div id="pdfInlineTitle" class="pdf-inline-title">PDF</div>
+              <button id="btnBackToPdfList" class="btn btn-ghost icon-btn" type="button" aria-label="Retour" title="Retour">
+                <span class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 18l-6-6 6-6"></path>
+                  </svg>
+                </span>
+              </button>
+            </div>
+            <div class="row" style="padding:0; gap:8px;">
+              <button id="btnCloseInlinePdf" class="btn btn-ghost" type="button">Fermer</button>
+            </div>
           </div>
           <div class="pdf-inline-frame">
-            <iframe id="pdfInlineFrame" title="PDF"></iframe>
+            <iframe id="pdfInlineFrame" title="PDF" allowfullscreen></iframe>
           </div>
         </div>
         <div id="pdfMsg" class="msg"></div>

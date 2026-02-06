@@ -930,7 +930,23 @@ function init() {
     pdfInput.value = "";
   });
   const btnSidePlus = $("btnSidePlus");
-  const openNameModal = (title, placeholder, onSubmit) => {
+  const btnToggleMatieres = $("btnToggleMatieres");
+  const matList = $("sideMatieresList");
+  const storedMat = localStorage.getItem("qcm_matieres_collapsed");
+  if (storedMat === "1") {
+    matList?.classList.add("collapsed");
+    if (btnToggleMatieres) btnToggleMatieres.classList.remove("open");
+  } else {
+    if (btnToggleMatieres) btnToggleMatieres.classList.add("open");
+  }
+  if (btnToggleMatieres) {
+    btnToggleMatieres.addEventListener("click", () => {
+      const isCollapsed = matList?.classList.toggle("collapsed");
+      btnToggleMatieres.classList.toggle("open", !isCollapsed);
+      localStorage.setItem("qcm_matieres_collapsed", isCollapsed ? "1" : "0");
+    });
+  }
+  const openNameModal = (title, placeholder, onSubmit, opts = {}) => {
     const wrap = document.createElement("div");
     wrap.className = "auth-card";
 
@@ -942,6 +958,64 @@ function init() {
     `;
     wrap.appendChild(row);
 
+    let chapterInput = null;
+    if (opts.showChapter) {
+      const chapterRow = document.createElement("div");
+      chapterRow.className = "auth-row";
+      const chapterPlaceholder = opts.chapterPlaceholder || "Ex: Chapitre 1";
+      chapterRow.innerHTML = `
+        <label class="label">Chapitre</label>
+        <input id="modalChapterInput" class="input" type="text" placeholder="${chapterPlaceholder}" />
+      `;
+      wrap.appendChild(chapterRow);
+      chapterInput = chapterRow.querySelector("#modalChapterInput");
+    }
+
+    let pickedColor = null;
+    if (opts.showColor) {
+      const colorRow = document.createElement("div");
+      colorRow.className = "auth-row color-row";
+      const defaultColor = opts.defaultColor || "#6b9df5";
+      pickedColor = defaultColor;
+      const palette = Array.isArray(window.MATIERE_PALETTE) && window.MATIERE_PALETTE.length
+        ? window.MATIERE_PALETTE
+        : [defaultColor];
+      colorRow.innerHTML = `
+        <label class="label">Couleur</label>
+        <div class="color-picker compact">
+          <span class="color-swatch" style="--pick-color:${defaultColor}"></span>
+          <span class="color-triangle" aria-hidden="true"></span>
+        </div>
+        <div class="modal-palette hidden"></div>
+      `;
+      wrap.appendChild(colorRow);
+      const paletteEl = colorRow.querySelector(".modal-palette");
+      if (paletteEl) {
+        palette.forEach((hex) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "palette-color";
+          btn.style.background = hex;
+          btn.setAttribute("aria-label", `Choisir ${hex}`);
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            pickedColor = hex;
+            const swatch = colorRow.querySelector(".color-swatch");
+            if (swatch) swatch.style.setProperty("--pick-color", hex);
+            paletteEl.classList.add("hidden");
+          });
+          paletteEl.appendChild(btn);
+        });
+      }
+      const picker = colorRow.querySelector(".color-picker");
+      if (picker && paletteEl) {
+        picker.addEventListener("click", (e) => {
+          e.stopPropagation();
+          paletteEl.classList.toggle("hidden");
+        });
+      }
+    }
+
     const actions = document.createElement("div");
     actions.className = "row";
     actions.style.padding = "0";
@@ -950,12 +1024,17 @@ function init() {
     const btnSave = document.createElement("button");
     btnSave.className = "btn btn-primary";
     btnSave.textContent = "Creer";
-    btnSave.addEventListener("click", async () => {
-      const value = $("modalNameInput")?.value?.trim() || "";
-      if (!value) return setMsg($("modalNameMsg"), "warn", "Nom manquant.");
-      await onSubmit(value);
-      hideModal();
-    });
+      btnSave.addEventListener("click", async () => {
+        const value = $("modalNameInput")?.value?.trim() || "";
+        if (!value) return setMsg($("modalNameMsg"), "warn", "Nom manquant.");
+        const chapterValue = chapterInput ? (chapterInput.value || "").trim() : "";
+        if (opts.showChapter && !chapterValue) {
+          return setMsg($("modalNameMsg"), "warn", "Chapitre manquant.");
+        }
+        const picked = pickedColor || null;
+        await onSubmit(value, picked, chapterValue);
+        hideModal();
+      });
 
     const btnCancel = document.createElement("button");
     btnCancel.className = "btn btn-ghost";
@@ -982,13 +1061,29 @@ function init() {
   };
 
   if (btnSidePlus) btnSidePlus.addEventListener("click", async () => {
-    openNameModal("Nouvelle matiere", "Ex: Physiologie", async (name) => {
-      await createMatiere(name);
-    });
+    openNameModal("Nouvelle matière", "Ex: Physiologie", async (name, color, chapterName) => {
+      await createMatiere(name, color, chapterName);
+    }, { showColor: true, defaultColor: "#6b9df5", showChapter: true, chapterPlaceholder: "Ex: Chapitre 1" });
   });
   const btnAddChapitre = $("btnAddChapitre");
+  const btnToggleChapitres = $("btnToggleChapitres");
+  const chapList = $("sideChapitresList");
+  const storedChap = localStorage.getItem("qcm_chapitres_collapsed");
+  if (storedChap === "1") {
+    chapList?.classList.add("collapsed");
+    if (btnToggleChapitres) btnToggleChapitres.classList.remove("open");
+  } else {
+    if (btnToggleChapitres) btnToggleChapitres.classList.add("open");
+  }
+  if (btnToggleChapitres) {
+    btnToggleChapitres.addEventListener("click", () => {
+      const isCollapsed = chapList?.classList.toggle("collapsed");
+      btnToggleChapitres.classList.toggle("open", !isCollapsed);
+      localStorage.setItem("qcm_chapitres_collapsed", isCollapsed ? "1" : "0");
+    });
+  }
   if (btnAddChapitre) btnAddChapitre.addEventListener("click", async () => {
-    if (!currentMatiereId) return setMsg($("chapitreMsg"), "warn", "Selectionne une matiere.");
+    if (!currentMatiereId) return setMsg($("chapitreMsg"), "warn", "Selectionne une matière.");
     openNameModal("Nouveau chapitre", "Ex: Chapitre 1", async (name) => {
       await createChapitre(name);
     });
@@ -1044,20 +1139,35 @@ function init() {
     const idx = mode === "train" ? 1 : 0;
     segWrap.style.setProperty("--seg-index", String(idx));
   };
+  const applyMode = (mode) => {
+    state.mode = mode;
+    document.querySelectorAll(".seg").forEach(b => {
+      b.classList.toggle("active", b.dataset.mode === state.mode);
+    });
+    setSegIndex(state.mode);
+    if (state.mode !== "exam") {
+      stopTimer();
+    } else if (state.timerEnabled && !$("view-quiz").classList.contains("hidden")) {
+      startTimer();
+    }
+    updateTimerDisplay();
+    clearMsg($("setupMsg"));
+  };
+  const toggleMode = () => {
+    applyMode(state.mode === "exam" ? "train" : "exam");
+  };
   setSegIndex(state.mode);
+  if (segWrap) {
+    segWrap.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggleMode();
+    });
+  }
   document.querySelectorAll(".seg").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".seg").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      state.mode = btn.dataset.mode;
-      setSegIndex(state.mode);
-      if (state.mode !== "exam") {
-        stopTimer();
-      } else if (state.timerEnabled && !$("view-quiz").classList.contains("hidden")) {
-        startTimer();
-      }
-      updateTimerDisplay();
-      clearMsg($("setupMsg"));
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleMode();
     });
   });
 
@@ -1514,17 +1624,26 @@ function init() {
   const appShell = document.querySelector(".app-shell");
   const sidebar = document.querySelector(".sidebar");
   const btnSidebar = $("btnSidebar");
+  const sidebarIcon = $("sidebarToggleIcon");
   const stored = localStorage.getItem("qcm_sidebar_collapsed");
   if (stored === "1") {
     appShell?.classList.add("collapsed");
     sidebar?.classList.add("collapsed");
   }
+  const updateSidebarIcon = () => {
+    const isCollapsed = appShell?.classList.contains("collapsed");
+    btnSidebar?.setAttribute("aria-label", isCollapsed ? "Ouvrir le menu" : "Fermer le menu");
+    btnSidebar?.setAttribute("title", isCollapsed ? "Ouvrir le menu" : "Fermer le menu");
+    if (btnSidebar) btnSidebar.classList.toggle("is-collapsed", !!isCollapsed);
+  };
+  updateSidebarIcon();
   if (btnSidebar) {
     btnSidebar.addEventListener("click", () => {
       appShell?.classList.toggle("collapsed");
       sidebar?.classList.toggle("collapsed");
       const isCollapsed = appShell?.classList.contains("collapsed");
       localStorage.setItem("qcm_sidebar_collapsed", isCollapsed ? "1" : "0");
+      updateSidebarIcon();
     });
   }
 

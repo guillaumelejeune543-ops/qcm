@@ -99,18 +99,32 @@
     </div>
     <div class="side-section">
       <div class="side-section-head">
-        <div class="side-section-title">Matieres</div>
-        <button id="btnSidePlus" class="btn btn-ghost icon-btn" aria-label="Ajouter une matiere" title="Ajouter une matiere">+</button>
+        <div class="side-section-title">Matières</div>
+        <button id="btnToggleMatieres" class="btn btn-ghost icon-btn chap-toggle" aria-label="Afficher/masquer les matières" title="Afficher/masquer les matières">
+          <span class="icon icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 6l-6 6 6 6"></path>
+            </svg>
+          </span>
+        </button>
+        <button id="btnSidePlus" class="btn btn-ghost icon-btn" aria-label="Ajouter une matière" title="Ajouter une matière">+</button>
       </div>
-      <div id="folderMsg" class="msg"></div>
       <div id="sideMatieresList" class="side-list drive-side-list"></div>
+      <div id="folderMsg" class="msg"></div>
       <div class="divider side-divider"></div>
       <div class="side-section-head">
         <div class="side-section-title">Chapitres</div>
+        <button id="btnToggleChapitres" class="btn btn-ghost icon-btn chap-toggle" aria-label="Afficher/masquer les chapitres" title="Afficher/masquer les chapitres">
+          <span class="icon icon-svg" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 6l-6 6 6 6"></path>
+            </svg>
+          </span>
+        </button>
         <button id="btnAddChapitre" class="btn btn-ghost icon-btn" aria-label="Ajouter un chapitre" title="Ajouter un chapitre">+</button>
       </div>
-      <div id="chapitreMsg" class="msg"></div>
       <div id="sideChapitresList" class="side-list drive-side-list"></div>
+      <div id="chapitreMsg" class="msg"></div>
     </div>
     <div class="side-footer">
       <button id="btnSideAccount" class="side-account">
@@ -128,7 +142,11 @@
     <header class="topbar">
       <div class="brand">
         <button id="btnSidebar" class="btn btn-ghost icon-btn" title="Menu" aria-label="Menu">
-          <span class="icon">☰</span>
+          <span id="sidebarToggleIcon" class="icon sidebar-toggle-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 18L9 12L15 6"></path>
+            </svg>
+          </span>
         </button>
         <div>
           <div class="title">QCM LAS</div>
@@ -215,13 +233,13 @@
 <!-- SETUP -->
 <section id="view-setup" class="card view">
   <div class="card-header">
-    <h2 id="currentContextTitle">Matiere · Chapitre</h2>
+    <h2 id="currentContextTitle">Matière · Chapitre</h2>
   </div>
 
   <div class="grid-2">
 
     <!-- JSON / PDF INPUT -->
-    <div class="panel">
+    <div id="leftPanel" class="panel">
       <div id="chapterStats" class="stats-cards">
         <div id="qcmCountCard" class="stat-card clickable" role="button" tabindex="0">
           <div class="stat-label">QCM disponibles</div>
@@ -292,7 +310,7 @@
 
       <!-- TIMER -->
       <div class="field">
-        <label class="label">Minuteur (mode Examen)</label>
+        <label class="label">Minuteur</label>
         <div class="toggle">
           <input id="timerToggle" type="checkbox" checked />
           <label for="timerToggle">

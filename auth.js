@@ -41,6 +41,92 @@ let pdfThumbRunning = 0;
 const PDF_THUMB_CONCURRENCY = 2;
 let pdfSignedUrlMap = new Map();
 let qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0 };
+const MATIERE_COLORS_KEY = "qcm_matiere_colors";
+const CHAPITRE_COLORS_KEY = "qcm_chapitre_colors";
+const MATIERE_PALETTE = [
+  // Reds / Pinks
+  "#FF6B6B", "#FF5C8D", "#FF7A8A", "#FF4D6D",
+  // Oranges / Yellows
+  "#FF9F43", "#FFC15A", "#FFD166", "#F9C74F",
+  // Greens
+  "#6BCB77", "#4CDCA0", "#2ED573", "#10AC84",
+  // Teals / Cyans
+  "#00D2D3", "#1ABC9C", "#22C1C3", "#4DADF7",
+  // Blues
+  "#4D96FF", "#3A86FF", "#5B8CFF", "#6C63FF",
+  // Purples
+  "#9B5DE5", "#B983FF", "#7B2CBF", "#6D214F"
+];
+window.MATIERE_PALETTE = MATIERE_PALETTE;
+let paletteCloseHandlerAdded = false;
+
+function loadMatiereColors() {
+  try {
+    const raw = localStorage.getItem(MATIERE_COLORS_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    return data && typeof data === "object" ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMatiereColors(map) {
+  try {
+    localStorage.setItem(MATIERE_COLORS_KEY, JSON.stringify(map || {}));
+  } catch {}
+}
+
+function getMatiereColor(id) {
+  if (!id) return "";
+  const map = loadMatiereColors();
+  const v = map[id];
+  return typeof v === "string" ? v : "";
+}
+
+function setMatiereColor(id, color) {
+  if (!id) return;
+  const map = loadMatiereColors();
+  if (!color) {
+    delete map[id];
+  } else {
+    map[id] = color;
+  }
+  saveMatiereColors(map);
+}
+
+function loadChapitreColors() {
+  try {
+    const raw = localStorage.getItem(CHAPITRE_COLORS_KEY);
+    const data = raw ? JSON.parse(raw) : {};
+    return data && typeof data === "object" ? data : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveChapitreColors(map) {
+  try {
+    localStorage.setItem(CHAPITRE_COLORS_KEY, JSON.stringify(map || {}));
+  } catch {}
+}
+
+function getChapitreColor(id) {
+  if (!id) return "";
+  const map = loadChapitreColors();
+  const v = map[id];
+  return typeof v === "string" ? v : "";
+}
+
+function setChapitreColor(id, color) {
+  if (!id) return;
+  const map = loadChapitreColors();
+  if (!color) {
+    delete map[id];
+  } else {
+    map[id] = color;
+  }
+  saveChapitreColors(map);
+}
 
 function folderMsgEl() {
   return $("folderMsg") || $("pdfMsg");
@@ -108,6 +194,16 @@ function setCurrentChapitre(id, opts = {}) {
   if (typeof window.setCardsEnabled === "function") {
     window.setCardsEnabled(!!currentMatiereId && !!currentChapitreId);
   }
+  renderChapitreList();
+  const hasChapitre = !!currentChapitreId;
+  document.body.classList.toggle("no-chapter", !hasChapitre);
+  if (!hasChapitre) {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    } catch {}
+  }
   const pdfInput = $("pdfInput");
   if (pdfInput) pdfInput.disabled = !currentChapitreId;
 
@@ -117,12 +213,34 @@ function setCurrentChapitre(id, opts = {}) {
   const matiere = matieres.find(m => m.id === currentMatiereId);
   const chapitre = chapitres.find(c => c.id === currentChapitreId);
   const contextLabel = matiere && chapitre
-    ? `Matiere : ${matiere.name} · Chapitre : ${chapitre.name}`
+    ? `Matière : ${matiere.name} · Chapitre : ${chapitre.name}`
     : matiere
-      ? `Matiere : ${matiere.name} · Chapitres`
+      ? `Matière : ${matiere.name} · Chapitres`
       : "Chapitres et PDFs";
-  if (title) title.textContent = contextLabel;
-  if (headerTitle) headerTitle.textContent = contextLabel;
+  const renderContext = (target) => {
+    if (!target) return;
+    if (!matiere) {
+      target.textContent = contextLabel;
+      return;
+    }
+      const mName = escapeHtml(matiere.name || "Matière");
+    const cName = chapitre ? escapeHtml(chapitre.name || "Chapitre") : "Chapitres";
+      const mColor = getMatiereColor(matiere.id) || "var(--primary)";
+      const cColor = chapitre ? (getChapitreColor(chapitre.id) || "var(--primary)") : "var(--primary)";
+      target.innerHTML = `
+        <span class="context-title">
+          <span class="context-left">
+            <span class="context-label">Matière</span>
+            <span class="context-pill" style="--ctx-color:${mColor}">${mName}</span>
+            <span class="context-label">Chapitre</span>
+            <span class="context-pill" style="--ctx-color:${cColor}">${cName}</span>
+          </span>
+          <span class="context-spacer"></span>
+        </span>
+      `;
+    };
+  if (title) title.textContent = "PDFs du chapitre";
+  renderContext(headerTitle);
   if (chapTitle) {
     chapTitle.textContent = matiere ? `Chapitres — ${matiere.name}` : "Chapitres";
   }
@@ -141,7 +259,7 @@ async function loadMatieres() {
   if (error) {
     console.error("loadMatieres error:", error);
     matieres = [];
-    setMsg(folderMsgEl(), "err", "Impossible de charger les matieres.");
+    setMsg(folderMsgEl(), "err", "Impossible de charger les matières.");
     return;
   }
   matieres = data || [];
@@ -149,7 +267,7 @@ async function loadMatieres() {
     currentMatiereId = null;
     clearMsg(folderMsgEl());
     const msg = $("chapitreMsg");
-    if (msg) setMsg(msg, "warn", "Aucune matiere. Clique sur + pour en creer une.");
+    if (msg) setMsg(msg, "warn", "Aucune matière. Clique sur + pour en creer une.");
     const pdfInput = $("pdfInput");
     if (pdfInput) pdfInput.disabled = true;
     setChapterCounts(0, 0);
@@ -200,18 +318,86 @@ function renderMatiereList() {
   const list = $("sideMatieresList");
   if (!list) return;
   list.innerHTML = "";
+  document.querySelectorAll(".matiere-palette").forEach(p => p.remove());
 
   matieres.forEach(m => {
     const item = document.createElement("button");
-    item.className = "side-item" + (currentMatiereId === m.id ? " active" : "");
-    item.innerHTML = `<span class="side-icon">📘</span><span class="side-label">${escapeHtml(m.name)}</span>`;
+    item.className = "side-item matiere-item" + (currentMatiereId === m.id ? " active" : "");
+    const color = getMatiereColor(m.id);
+    if (color) item.style.setProperty("--matiere-color", color);
+    item.innerHTML = `
+      <span class="matiere-bar" aria-hidden="true"></span>
+      <span class="side-label">${escapeHtml(m.name)}</span>
+      <button class="matiere-trash" type="button" aria-label="Supprimer la matière" title="Supprimer la matière">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 7h16"></path>
+          <path d="M9 7V5h6v2"></path>
+          <path d="M7 7l1 12h8l1-12"></path>
+          <path d="M10 11v6"></path>
+          <path d="M14 11v6"></path>
+        </svg>
+      </button>
+    `;
     item.title = m.name || "";
     item.dataset.matiereId = m.id;
     item.addEventListener("click", () => {
       if (currentMatiereId !== m.id) setCurrentMatiere(m.id);
     });
+    const trash = item.querySelector(".matiere-trash");
+    if (trash) {
+      trash.addEventListener("click", (e) => {
+        e.stopPropagation();
+        confirmDeleteMatiere(m.name || "Matière", () => deleteMatiere(m.id));
+      });
+    }
+    const colorBar = item.querySelector(".matiere-bar");
+    if (colorBar) {
+      const palette = document.createElement("div");
+      palette.className = "matiere-palette";
+      palette.dataset.matiereId = m.id;
+      MATIERE_PALETTE.forEach((hex) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "palette-color";
+        btn.style.background = hex;
+        btn.setAttribute("aria-label", `Choisir ${hex}`);
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          item.style.setProperty("--matiere-color", hex);
+          setMatiereColor(m.id, hex);
+          if (currentMatiereId === m.id) {
+            setCurrentChapitre(currentChapitreId, { skipList: true });
+          }
+          palette.classList.remove("open");
+        });
+        palette.appendChild(btn);
+      });
+      colorBar.addEventListener("click", (e) => {
+        e.stopPropagation();
+        document.querySelectorAll(".matiere-palette.open").forEach(p => p.classList.remove("open"));
+        const rect = colorBar.getBoundingClientRect();
+        const top = rect.top - 8;
+        const left = rect.right - 6;
+        palette.style.top = `${top}px`;
+        palette.style.left = `${left}px`;
+        palette.classList.toggle("open");
+      });
+      document.body.appendChild(palette);
+    }
     list.appendChild(item);
   });
+  if (!paletteCloseHandlerAdded) {
+    paletteCloseHandlerAdded = true;
+    document.addEventListener("click", () => {
+      document.querySelectorAll(".matiere-palette.open, .chapitre-palette.open").forEach(p => p.classList.remove("open"));
+    });
+    window.addEventListener("resize", () => {
+      document.querySelectorAll(".matiere-palette.open, .chapitre-palette.open").forEach(p => p.classList.remove("open"));
+    });
+    list.addEventListener("scroll", () => {
+      document.querySelectorAll(".matiere-palette.open, .chapitre-palette.open").forEach(p => p.classList.remove("open"));
+    });
+  }
 }
 
 function renderChapitreList() {
@@ -221,11 +407,63 @@ function renderChapitreList() {
 
   chapitres.forEach(ch => {
     const item = document.createElement("button");
-    item.className = "side-item" + (currentChapitreId === ch.id ? " active" : "");
-    item.innerHTML = `<span class="side-icon">📁</span><span class="side-label">${escapeHtml(ch.name)}</span>`;
+    item.className = "side-item chapitre-item" + (currentChapitreId === ch.id ? " active" : "");
+    const color = getChapitreColor(ch.id) || (currentMatiereId ? getMatiereColor(currentMatiereId) : "");
+    if (color) item.style.setProperty("--chapitre-color", color);
+    item.innerHTML = `
+      <span class="chapitre-bar" aria-hidden="true"></span>
+      <span class="side-label">${escapeHtml(ch.name)}</span>
+      <button class="chapitre-trash" type="button" aria-label="Supprimer le chapitre" title="Supprimer le chapitre">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 7h16"></path>
+          <path d="M9 7V5h6v2"></path>
+          <path d="M7 7l1 12h8l1-12"></path>
+          <path d="M10 11v6"></path>
+          <path d="M14 11v6"></path>
+        </svg>
+      </button>
+    `;
     item.title = ch.name || "";
     item.dataset.chapitreId = ch.id;
     item.addEventListener("click", () => setCurrentChapitre(ch.id));
+    const trash = item.querySelector(".chapitre-trash");
+    if (trash) {
+      trash.addEventListener("click", (e) => {
+        e.stopPropagation();
+        confirmDeleteChapitre(ch.name || "Chapitre", () => deleteChapitre(ch.id));
+      });
+    }
+    const colorBar = item.querySelector(".chapitre-bar");
+    if (colorBar) {
+      const palette = document.createElement("div");
+      palette.className = "chapitre-palette";
+      palette.dataset.chapitreId = ch.id;
+      MATIERE_PALETTE.forEach((hex) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "palette-color";
+        btn.style.background = hex;
+        btn.setAttribute("aria-label", `Choisir ${hex}`);
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          item.style.setProperty("--chapitre-color", hex);
+          setChapitreColor(ch.id, hex);
+          palette.classList.remove("open");
+        });
+        palette.appendChild(btn);
+      });
+      colorBar.addEventListener("click", (e) => {
+        e.stopPropagation();
+        document.querySelectorAll(".chapitre-palette.open").forEach(p => p.classList.remove("open"));
+        const rect = colorBar.getBoundingClientRect();
+        const top = rect.top - 8;
+        const left = rect.right - 6;
+        palette.style.top = `${top}px`;
+        palette.style.left = `${left}px`;
+        palette.classList.toggle("open");
+      });
+      document.body.appendChild(palette);
+    }
     list.appendChild(item);
   });
 }
@@ -291,16 +529,37 @@ function setCurrentPdf(name) {
   currentPdfName = name || null;
 }
 
-async function createMatiere(name) {
+async function createMatiere(name, color, chapterName) {
   if (!state.user || !name) return;
-  const { error } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from(MATIERES_TABLE)
-    .insert([{ user_id: state.user.id, name }]);
+    .insert([{ user_id: state.user.id, name }])
+    .select("id")
+    .single();
   if (error) {
     console.error("createMatiere error:", error);
-    return setMsg(folderMsgEl(), "err", "Creation de la matiere impossible.");
+    return setMsg(folderMsgEl(), "err", "Creation de la matière impossible.");
   }
-  setMsg(folderMsgEl(), "ok", "Matiere creee.");
+  currentMatiereId = data?.id || currentMatiereId;
+  if (data?.id && color) {
+    setMatiereColor(data.id, color);
+  }
+  if (data?.id && chapterName) {
+    const { data: chapData, error: chapErr } = await supabaseClient
+      .from(CHAPITRES_TABLE)
+      .insert([{ user_id: state.user.id, matiere_id: data.id, name: chapterName }])
+      .select("id")
+      .single();
+    if (chapErr) {
+      console.error("createChapitre error:", chapErr);
+      setMsg($("chapitreMsg"), "err", "Creation du chapitre impossible.");
+    } else if (chapData?.id) {
+      currentChapitreId = chapData.id;
+    }
+  }
+  const msgEl = $("folderMsg") || folderMsgEl();
+  setMsg(msgEl, "ok", "Matière créée.");
+  setTimeout(() => clearMsg(msgEl), 2200);
   await loadMatieres();
 }
 
@@ -313,7 +572,9 @@ async function createChapitre(name) {
     console.error("createChapitre error:", error);
     return setMsg(folderMsgEl(), "err", "Creation du chapitre impossible.");
   }
-  setMsg(folderMsgEl(), "ok", "Chapitre cree.");
+  const msgEl = $("chapitreMsg") || folderMsgEl();
+  setMsg(msgEl, "ok", "Chapitre créé.");
+  setTimeout(() => clearMsg(msgEl), 2200);
   await loadChapitres();
 }
 
@@ -336,7 +597,151 @@ async function deleteChapitre(id) {
     .eq("id", id)
     .eq("user_id", state.user.id);
   if (currentChapitreId === id) currentChapitreId = null;
+  const msgEl = $("chapitreMsg") || folderMsgEl();
+  setMsg(msgEl, "ok", "Chapitre supprimé.");
+  setTimeout(() => clearMsg(msgEl), 2200);
   await loadChapitres();
+}
+
+function confirmDeleteMatiere(matiereName, onConfirm) {
+  const wrap = document.createElement("div");
+  wrap.className = "auth-card";
+
+  const title = document.createElement("div");
+  title.className = "confirm-title";
+  title.textContent = "Supprimer la matière ?";
+  wrap.appendChild(title);
+
+  const desc = document.createElement("div");
+  desc.className = "confirm-text";
+  desc.textContent = `La matière "${matiereName}" sera supprimée avec ses chapitres, PDFs, QCM et flash cards.`;
+  wrap.appendChild(desc);
+
+  const actions = document.createElement("div");
+  actions.className = "row";
+  actions.style.padding = "0";
+  actions.style.marginTop = "10px";
+
+  const btnCancel = document.createElement("button");
+  btnCancel.className = "btn btn-ghost";
+  btnCancel.textContent = "Annuler";
+  btnCancel.addEventListener("click", hideModal);
+
+  const btnDelete = document.createElement("button");
+  btnDelete.className = "btn btn-danger";
+  btnDelete.textContent = "Supprimer";
+  btnDelete.addEventListener("click", () => {
+    hideModal();
+    onConfirm();
+  });
+
+  actions.appendChild(btnCancel);
+  actions.appendChild(btnDelete);
+  wrap.appendChild(actions);
+
+  showModal("Confirmation", wrap);
+}
+
+function confirmDeleteChapitre(chapitreName, onConfirm) {
+  const wrap = document.createElement("div");
+  wrap.className = "auth-card";
+
+  const title = document.createElement("div");
+  title.className = "confirm-title";
+  title.textContent = "Supprimer le chapitre ?";
+  wrap.appendChild(title);
+
+  const desc = document.createElement("div");
+  desc.className = "confirm-text";
+  desc.textContent = `Le chapitre "${chapitreName}" et ses données associées seront supprimés.`;
+  wrap.appendChild(desc);
+
+  const actions = document.createElement("div");
+  actions.className = "row";
+  actions.style.padding = "0";
+  actions.style.marginTop = "10px";
+
+  const btnCancel = document.createElement("button");
+  btnCancel.className = "btn btn-ghost";
+  btnCancel.textContent = "Annuler";
+  btnCancel.addEventListener("click", hideModal);
+
+  const btnDelete = document.createElement("button");
+  btnDelete.className = "btn btn-danger";
+  btnDelete.textContent = "Supprimer";
+  btnDelete.addEventListener("click", () => {
+    hideModal();
+    onConfirm();
+  });
+
+  actions.appendChild(btnCancel);
+  actions.appendChild(btnDelete);
+  wrap.appendChild(actions);
+
+  showModal("Confirmation", wrap);
+}
+
+async function deleteMatiere(id) {
+  if (!state.user || !id) return;
+  try {
+    const { data: chapRows } = await supabaseClient
+      .from(CHAPITRES_TABLE)
+      .select("id")
+      .eq("user_id", state.user.id)
+      .eq("matiere_id", id);
+    const chapitreIds = (chapRows || []).map(r => r.id).filter(Boolean);
+    if (chapitreIds.length) {
+      const { data: pdfRows } = await supabaseClient
+        .from(PDF_INDEX_TABLE)
+        .select("file_name")
+        .eq("user_id", state.user.id)
+        .in("chapitre_id", chapitreIds);
+      const files = (pdfRows || []).map(r => r.file_name).filter(Boolean);
+      if (files.length) {
+        await supabaseClient
+          .storage
+          .from(FILES_BUCKET)
+          .remove(files.map(f => `${state.user.id}/${f}`));
+      }
+      await supabaseClient
+        .from(PDF_INDEX_TABLE)
+        .delete()
+        .eq("user_id", state.user.id)
+        .in("chapitre_id", chapitreIds);
+      await supabaseClient
+        .from(QCM_QUESTIONS_TABLE)
+        .delete()
+        .eq("user_id", state.user.id)
+        .in("chapitre_id", chapitreIds);
+      await supabaseClient
+        .from(FLASH_SETS_TABLE)
+        .delete()
+        .eq("user_id", state.user.id)
+        .in("chapitre_id", chapitreIds);
+      await supabaseClient
+        .from(CHAPITRES_TABLE)
+        .delete()
+        .eq("user_id", state.user.id)
+        .eq("matiere_id", id);
+    }
+    await supabaseClient
+      .from(MATIERES_TABLE)
+      .delete()
+      .eq("user_id", state.user.id)
+      .eq("id", id);
+    if (currentMatiereId === id) {
+      currentMatiereId = null;
+      currentChapitreId = null;
+      currentPdfName = null;
+    }
+    const msgEl = $("folderMsg") || folderMsgEl();
+    setMsg(msgEl, "ok", "Matière supprimée.");
+    setTimeout(() => clearMsg(msgEl), 2200);
+    await loadMatieres();
+  } catch (err) {
+    console.error("deleteMatiere error:", err);
+    setMsg(folderMsgEl(), "err", "Suppression impossible.");
+  }
 }
 
 async function setFileChapitre(fileName, chapitreId) {
@@ -519,7 +924,7 @@ async function listUserPdfs() {
     const empty = document.createElement("div");
     empty.className = "muted";
     empty.style.padding = "10px 4px";
-    empty.textContent = "Selectionne une matiere et un chapitre pour voir les PDFs.";
+    empty.textContent = "Selectionne une matière et un chapitre pour voir les PDFs.";
     pdfList.appendChild(empty);
     return;
   }

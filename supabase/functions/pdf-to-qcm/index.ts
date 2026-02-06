@@ -6,6 +6,8 @@ const JWT_SECRET = Deno.env.get("JWT_SECRET") || "";
 const PROJECT_URL = Deno.env.get("PROJECT_URL") || "";
 const MODEL = "gpt-4o-mini-2024-07-18";
 const MAX_PDF_MB = 25;
+const MAX_EXISTING_QUESTIONS = 80;
+const OPENAI_TIMEOUT_MS = 180000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +21,7 @@ function buildSchema() {
     additionalProperties: false,
     properties: {
       title: { type: "string" },
+      note: { type: "string" },
       questions: {
         type: "array",
         minItems: 1,
@@ -29,7 +32,7 @@ function buildSchema() {
               additionalProperties: false,
               properties: {
                 type: { type: "string", const: "multi" },
-                difficulty: { type: "string" },
+                difficulty: { type: "string", enum: ["facile", "moyen", "difficile"] },
                 question: { type: "string" },
                 options: { type: "array", minItems: 5, maxItems: 5, items: { type: "string" } },
                 answer_indices: { type: "array", minItems: 1, maxItems: 5, items: { type: "integer", minimum: 0, maximum: 4 } },
@@ -56,7 +59,7 @@ function buildSchema() {
               additionalProperties: false,
               properties: {
                 type: { type: "string", const: "tf" },
-                difficulty: { type: "string" },
+                difficulty: { type: "string", enum: ["facile", "moyen", "difficile"] },
                 question: { type: "string" },
                 items: { type: "array", minItems: 5, maxItems: 5, items: { type: "string" } },
                 truth: { type: "array", minItems: 5, maxItems: 5, items: { type: "boolean" } },
@@ -82,8 +85,56 @@ function buildSchema() {
         }
       }
     },
-    required: ["title", "questions"]
+    required: ["title", "note", "questions"]
   };
+}
+
+function normalizeDifficulty(value: unknown) {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim().toLowerCase();
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/[éèêë]/g, "e")
+    .replace(/[àâä]/g, "a")
+    .replace(/[îï]/g, "i")
+    .replace(/[ôö]/g, "o")
+    .replace(/[ùûü]/g, "u")
+    .replace(/[^a-z0-9]/g, "");
+  if (["facile", "easy", "simple", "debutant", "debut"].includes(cleaned)) return "facile";
+  if (["moyen", "moyenne", "medium", "intermediaire", "intermediate", "mid"].includes(cleaned)) return "moyen";
+  if (["difficile", "hard", "difficult", "avance"].includes(cleaned)) return "difficile";
+  if (cleaned === "1") return "facile";
+  if (cleaned === "2") return "moyen";
+  if (cleaned === "3") return "difficile";
+  return null;
+}
+
+function sanitizeQuestions(data: any, requestedDifficulty?: unknown) {
+  if (!data || !Array.isArray(data.questions)) return data;
+  const fallback = normalizeDifficulty(requestedDifficulty) || "moyen";
+  const ensurePrefixes = (items: any[]) => {
+    const labels = ["A", "B", "C", "D", "E"];
+    return items.map((raw, i) => {
+      const value = typeof raw === "string" ? raw.trim() : String(raw ?? "");
+      const label = labels[i] || String(i + 1);
+      if (value.startsWith(`${label} `)) return value;
+      const stripped = value.replace(/^[A-E]\s+/i, "").trim();
+      return `${label} ${stripped}`;
+    });
+  };
+  data.questions = data.questions.map((q: any) => {
+    if (!q || typeof q !== "object") return q;
+    const normalized = normalizeDifficulty(q.difficulty) || fallback;
+    const next: any = { ...q, difficulty: normalized };
+    if (Array.isArray(next.options) && next.options.length === 5) {
+      next.options = ensurePrefixes(next.options);
+    }
+    if (Array.isArray(next.items) && next.items.length === 5) {
+      next.items = ensurePrefixes(next.items);
+    }
+    return next;
+  });
+  return data;
 }
 
 function extractOutputText(resp: any) {
@@ -121,96 +172,97 @@ async function uploadPdfToOpenAI(pdfBuffer: ArrayBuffer, filename: string) {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
-  if (!OPENAI_API_KEY) {
-    return new Response(JSON.stringify({ error: "OPENAI_API_KEY manquant." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
-
-  const url = new URL(req.url);
-
-  // Manual JWT verification (secure even if verify_jwt = false)
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  if (!token) {
-    return new Response(JSON.stringify({ error: "JWT manquant." }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
   try {
-    const origin = PROJECT_URL || new URL(req.url).origin;
-    const header = decodeProtectedHeader(token);
-    const claims = decodeJwt(token);
-    console.log("[auth] jwt header", { alg: header.alg, kid: header.kid });
-    console.log("[auth] jwt iss", claims.iss);
-    const issuer = `${origin}/auth/v1`;
-    if (header.alg && header.alg.startsWith("HS")) {
-      if (!JWT_SECRET) {
-        return new Response(JSON.stringify({ error: "JWT_SECRET manquant pour HS256." }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-      }
-      await jwtVerify(token, new TextEncoder().encode(JWT_SECRET), { issuer });
-    } else {
-      const jwksUrl = new URL("/auth/v1/.well-known/jwks.json", origin);
-      const jwks = createRemoteJWKSet(jwksUrl);
-      await jwtVerify(token, jwks, { issuer });
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { headers: corsHeaders });
     }
-  } catch (err) {
-    console.error("[auth] JWT invalid", String(err));
-    return new Response(JSON.stringify({ error: "JWT invalide." }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
 
-  if (req.method === "DELETE") {
-    const body = await req.json().catch(() => ({}));
-    const fileId = url.searchParams.get("file_id") || body?.file_id;
-    if (!fileId) {
-      return new Response(JSON.stringify({ error: "file_id manquant" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-    const delRes = await fetch(`https://api.openai.com/v1/files/${fileId}`, {
-      method: "DELETE",
-      headers: { "Authorization": `Bearer ${OPENAI_API_KEY}` }
-    });
-    const delJson = await delRes.json().catch(() => ({}));
-    if (!delRes.ok) {
-      console.error("[delete] OpenAI error", delRes.status, delJson);
-      return new Response(JSON.stringify({ error: "OpenAI delete error", details: delJson }), {
+    if (!OPENAI_API_KEY) {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY manquant." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
-    return new Response(JSON.stringify({ ok: true, data: delJson }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
+    const url = new URL(req.url);
 
-  const body = await req.json().catch(() => ({}));
-  console.log("[pdf-to-qcm] request", {
-    hasPdfUrl: !!body?.pdfUrl,
-    hasFileId: !!body?.openai_file_id,
-    fileName: body?.fileName || null
-  });
-  const { pdfUrl, titleHint, questionCount, difficulty, openai_file_id, fileName } = body || {};
+    // Manual JWT verification (secure even if verify_jwt = false)
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) {
+      return new Response(JSON.stringify({ error: "JWT manquant." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+    try {
+      const origin = PROJECT_URL || new URL(req.url).origin;
+      const header = decodeProtectedHeader(token);
+      const claims = decodeJwt(token);
+      console.log("[auth] jwt header", { alg: header.alg, kid: header.kid });
+      console.log("[auth] jwt iss", claims.iss);
+      const issuer = `${origin}/auth/v1`;
+      if (header.alg && header.alg.startsWith("HS")) {
+        if (!JWT_SECRET) {
+          return new Response(JSON.stringify({ error: "JWT_SECRET manquant pour HS256." }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        await jwtVerify(token, new TextEncoder().encode(JWT_SECRET), { issuer });
+      } else {
+        const jwksUrl = new URL("/auth/v1/.well-known/jwks.json", origin);
+        const jwks = createRemoteJWKSet(jwksUrl);
+        await jwtVerify(token, jwks, { issuer });
+      }
+    } catch (err) {
+      console.error("[auth] JWT invalid", String(err));
+      return new Response(JSON.stringify({ error: "JWT invalide." }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    if (req.method === "DELETE") {
+      const body = await req.json().catch(() => ({}));
+      const fileId = url.searchParams.get("file_id") || body?.file_id;
+      if (!fileId) {
+        return new Response(JSON.stringify({ error: "file_id manquant" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      const delRes = await fetch(`https://api.openai.com/v1/files/${fileId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${OPENAI_API_KEY}` }
+      });
+      const delJson = await delRes.json().catch(() => ({}));
+      if (!delRes.ok) {
+        console.error("[delete] OpenAI error", delRes.status, delJson);
+        return new Response(JSON.stringify({ error: "OpenAI delete error", details: delJson }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, data: delJson }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
+        status: 405,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    console.log("[pdf-to-qcm] request", {
+      hasPdfUrl: !!body?.pdfUrl,
+      hasFileId: !!body?.openai_file_id,
+      fileName: body?.fileName || null
+    });
+  let { pdfUrl, titleHint, questionCount, openai_file_id, fileName, existingQuestions, pageRange } = body || {};
   if (!pdfUrl && !openai_file_id) {
     return new Response(JSON.stringify({ error: "pdfUrl manquant" }), {
       status: 400,
@@ -218,49 +270,68 @@ serve(async (req) => {
     });
   }
 
-  let fileId = openai_file_id || null;
-
-  if (!fileId) {
-    console.log("[pdf-to-qcm] fetching pdf...");
-    const pdfRes = await fetch(pdfUrl);
-    if (!pdfRes.ok) {
-      console.error("[pdf-to-qcm] download failed", pdfRes.status);
-      return new Response(JSON.stringify({ error: `Telechargement PDF impossible (${pdfRes.status}).` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+  if (questionCount !== undefined && questionCount !== null) {
+    const n = Number(questionCount);
+    if (Number.isFinite(n)) {
+      questionCount = Math.min(20, Math.max(1, Math.floor(n)));
+    } else {
+      questionCount = null;
     }
-    const sizeHeader = pdfRes.headers.get("content-length");
-    if (sizeHeader) {
-      const mb = Number(sizeHeader) / (1024 * 1024);
-      if (mb > MAX_PDF_MB) {
-        console.error("[pdf-to-qcm] file too big", mb);
-        return new Response(JSON.stringify({ error: `PDF trop lourd (${mb.toFixed(1)} Mo). Limite ${MAX_PDF_MB} Mo.` }), {
-          status: 413,
+  }
+
+    let fileId = openai_file_id || null;
+
+    if (!fileId) {
+      console.log("[pdf-to-qcm] fetching pdf...");
+      const pdfRes = await fetch(pdfUrl);
+      if (!pdfRes.ok) {
+        console.error("[pdf-to-qcm] download failed", pdfRes.status);
+        return new Response(JSON.stringify({ error: `Telechargement PDF impossible (${pdfRes.status}).` }), {
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
+      const sizeHeader = pdfRes.headers.get("content-length");
+      if (sizeHeader) {
+        const mb = Number(sizeHeader) / (1024 * 1024);
+        if (mb > MAX_PDF_MB) {
+          console.error("[pdf-to-qcm] file too big", mb);
+          return new Response(JSON.stringify({ error: `PDF trop lourd (${mb.toFixed(1)} Mo). Limite ${MAX_PDF_MB} Mo.` }), {
+            status: 413,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+      }
+      const pdfBuffer = await pdfRes.arrayBuffer();
+      try {
+        fileId = await uploadPdfToOpenAI(pdfBuffer, fileName || "document.pdf");
+        console.log("[pdf-to-qcm] uploaded file", fileId);
+      } catch (err) {
+        console.error("[pdf-to-qcm] upload error", String(err));
+        return new Response(JSON.stringify({ error: "OpenAI upload error", details: String(err) }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+      }
+    } else {
+      console.log("[pdf-to-qcm] using existing fileId", fileId);
     }
-    const pdfBuffer = await pdfRes.arrayBuffer();
-    try {
-      fileId = await uploadPdfToOpenAI(pdfBuffer, fileName || "document.pdf");
-      console.log("[pdf-to-qcm] uploaded file", fileId);
-    } catch (err) {
-      console.error("[pdf-to-qcm] upload error", String(err));
-      return new Response(JSON.stringify({ error: "OpenAI upload error", details: String(err) }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
-    }
-  } else {
-    console.log("[pdf-to-qcm] using existing fileId", fileId);
-  }
 
-  const schema = buildSchema();
-  const hint = titleHint ? `Titre suggere: ${titleHint}.` : "";
-  const countLine = questionCount ? `Genere ${questionCount} questions.` : "Genere un nombre raisonnable de questions (entre 10 et 25).";
-  const diffLine = difficulty ? `Difficulte: ${difficulty}.` : "";
-  const instructions = `Tu es un enseignant LAS. Genere un QCM STRICTEMENT base sur le PDF fourni.\n\nContraintes:\n- Langue: francais\n- Aucun contenu invente\n- 80% questions type \"multi\" et 20% type \"tf\"\n- Toujours 5 propositions/items A->E\n- options/items commencent par \"A ", \"B ", \"C ", \"D ", \"E \"\n- evidence doit toujours etre un tableau (peut etre vide) avec 0 a 3 extraits courts\n- chaque question doit avoir une difficulty parmi: facile, moyen, difficile\n${countLine}\n${diffLine}\n${hint}\n\nNe renvoie que le JSON valide conforme au schema.`;
+    const schema = buildSchema();
+    const hint = titleHint ? `Titre suggere: ${titleHint}.` : "";
+    const countLine = questionCount ? `Genere ${questionCount} questions.` : "Genere un nombre raisonnable de questions (entre 10 et 20).";
+    const rangeLine = pageRange ? `Tu dois travailler uniquement sur les pages ${pageRange}.` : "";
+    const existingList = Array.isArray(existingQuestions)
+      ? existingQuestions
+          .slice(0, MAX_EXISTING_QUESTIONS)
+          .map((q) => String(q || "").trim())
+          .filter(Boolean)
+          .map((q) => (q.length > 240 ? `${q.slice(0, 240)}…` : q))
+      : [];
+    const avoidBlock = existingList.length
+      ? `\n\nQuestions deja existantes (ne jamais les reproduire ni paraphraser):\n${existingList.map((q, i) => `${i + 1}. ${q}`).join("\n")}`
+      : "";
+    const instructions = `Tu es un enseignant LAS. Genere un QCM STRICTEMENT base sur le PDF fourni.\n\nContraintes:\n- Langue: francais\n- Aucun contenu invente\n- 80% questions type \"multi\" et 20% type \"tf\"\n- Toujours 5 propositions/items A->E\n- options/items commencent par \"A ", \"B ", \"C ", \"D ", \"E \"\n- evidence doit toujours etre un tableau (peut etre vide) avec 0 a 3 extraits courts\n- chaque question doit avoir une difficulty exactement parmi: facile, moyen, difficile (minuscules, sans accents)\n- determine toi-meme la difficulty de chaque question\n- les questions doivent etre nouvelles et differentes des questions deja existantes\n- le champ \"note\" est obligatoire : si tout est OK, mets une chaine vide \"\" ; si tu ne peux pas generer ${questionCount || "le nombre demande"} questions nouvelles, explique pourquoi dans \"note\"\n${countLine}\n${rangeLine}\n${hint}${avoidBlock}\n\nNe renvoie que le JSON valide conforme au schema.`;
 
   const payload = {
     model: MODEL,
@@ -279,59 +350,70 @@ serve(async (req) => {
     temperature: 0.2
   };
 
-  console.log("[pdf-to-qcm] calling OpenAI...");
-  let openaiRes: Response;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000);
-    openaiRes = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
+    console.log("[pdf-to-qcm] calling OpenAI...");
+    let openaiRes: Response;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+      openaiRes = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+    } catch (err) {
+      console.error("[pdf-to-qcm] OpenAI fetch error", String(err));
+      return new Response(JSON.stringify({ error: "OpenAI fetch error", details: String(err) }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const openaiJson = await openaiRes.json().catch(() => ({}));
+    if (!openaiRes.ok) {
+      console.error("[pdf-to-qcm] OpenAI error", openaiRes.status, openaiJson);
+      return new Response(JSON.stringify({ error: "OpenAI error", details: openaiJson }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const outputText = extractOutputText(openaiJson);
+    if (!outputText) {
+      console.error("[pdf-to-qcm] Empty output", openaiJson);
+      return new Response(JSON.stringify({ error: "Reponse OpenAI vide." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(outputText);
+    } catch {
+      console.error("[pdf-to-qcm] JSON parse error", outputText.slice(0, 500));
+      return new Response(JSON.stringify({ error: "JSON invalide renvoye par OpenAI.", raw: outputText.slice(0, 500) }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    if (parsedJson && typeof parsedJson === "object" && (parsedJson as any).note === undefined) {
+      (parsedJson as any).note = "";
+    }
+    const sanitized = sanitizeQuestions(parsedJson, null);
+    return new Response(JSON.stringify({ ok: true, data: sanitized, openai_file_id: fileId }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
-    clearTimeout(timeout);
   } catch (err) {
-    console.error("[pdf-to-qcm] OpenAI fetch error", String(err));
-    return new Response(JSON.stringify({ error: "OpenAI fetch error", details: String(err) }), {
+    console.error("[pdf-to-qcm] Unhandled error", String(err));
+    return new Response(JSON.stringify({ error: "Unhandled error", details: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
-
-  const openaiJson = await openaiRes.json().catch(() => ({}));
-  if (!openaiRes.ok) {
-    console.error("[pdf-to-qcm] OpenAI error", openaiRes.status, openaiJson);
-    return new Response(JSON.stringify({ error: "OpenAI error", details: openaiJson }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
-
-  const outputText = extractOutputText(openaiJson);
-  if (!outputText) {
-    console.error("[pdf-to-qcm] Empty output", openaiJson);
-    return new Response(JSON.stringify({ error: "Reponse OpenAI vide." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(outputText);
-  } catch {
-    console.error("[pdf-to-qcm] JSON parse error", outputText.slice(0, 500));
-    return new Response(JSON.stringify({ error: "JSON invalide renvoye par OpenAI.", raw: outputText.slice(0, 500) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  }
-
-  return new Response(JSON.stringify({ ok: true, data: parsedJson, openai_file_id: fileId }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" }
-  });
 });

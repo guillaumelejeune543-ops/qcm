@@ -214,9 +214,11 @@ function validateQuestion(q, idx) {
   if (!q || typeof q !== "object") throw new Error(baseErr("objet invalide"));
 
   if (!["multi","tf"].includes(q.type)) throw new Error(baseErr("type doit etre 'multi' ou 'tf'"));
-  if (!["facile","moyen","difficile"].includes(q.difficulty)) {
+  const normalizedDifficulty = normalizeDifficulty(q.difficulty);
+  if (!normalizedDifficulty) {
     throw new Error(baseErr("difficulty doit etre 'facile', 'moyen' ou 'difficile'"));
   }
+  q.difficulty = normalizedDifficulty;
   if (typeof q.question !== "string" || q.question.trim().length < 5) throw new Error(baseErr("question trop courte"));
   if (typeof q.explanation !== "string") q.explanation = "";
 
@@ -310,6 +312,26 @@ function loadQuestionsFromJsonText(text) {
     setMsg(setupMsg, "err", e.message || "Erreur de validation du format.");
     return false;
   }
+}
+
+function normalizeDifficulty(value) {
+  if (value === null || value === undefined) return null;
+  const raw = String(value).trim().toLowerCase();
+  if (!raw) return null;
+  const cleaned = raw
+    .replace(/[éèêë]/g, "e")
+    .replace(/[àâä]/g, "a")
+    .replace(/[îï]/g, "i")
+    .replace(/[ôö]/g, "o")
+    .replace(/[ùûü]/g, "u")
+    .replace(/[^a-z0-9]/g, "");
+  if (["facile","easy","simple","debutant","debut"].includes(cleaned)) return "facile";
+  if (["moyen","moyenne","medium","intermediaire","intermediate","mid"].includes(cleaned)) return "moyen";
+  if (["difficile","hard","difficult","avance"].includes(cleaned)) return "difficile";
+  if (cleaned === "1") return "facile";
+  if (cleaned === "2") return "moyen";
+  if (cleaned === "3") return "difficile";
+  return null;
 }
 
 function calcLasScore(errors) {
@@ -608,6 +630,7 @@ async function saveRunIfAuthed() {
     questions: state.questions,
     answers: state.answers,
     validated: state.validated,
+    flagged: []
   };
   await insertQuizRun(payload);
 }
@@ -1024,17 +1047,17 @@ function init() {
     const btnSave = document.createElement("button");
     btnSave.className = "btn btn-primary";
     btnSave.textContent = "Creer";
-      btnSave.addEventListener("click", async () => {
-        const value = $("modalNameInput")?.value?.trim() || "";
-        if (!value) return setMsg($("modalNameMsg"), "warn", "Nom manquant.");
-        const chapterValue = chapterInput ? (chapterInput.value || "").trim() : "";
-        if (opts.showChapter && !chapterValue) {
-          return setMsg($("modalNameMsg"), "warn", "Chapitre manquant.");
-        }
-        const picked = pickedColor || null;
-        await onSubmit(value, picked, chapterValue);
-        hideModal();
-      });
+    btnSave.addEventListener("click", async () => {
+      const value = $("modalNameInput")?.value?.trim() || "";
+      if (!value) return setMsg($("modalNameMsg"), "warn", "Nom manquant.");
+      const chapterValue = chapterInput ? (chapterInput.value || "").trim() : "";
+      if (opts.showChapter && !chapterValue) {
+        return setMsg($("modalNameMsg"), "warn", "Chapitre manquant.");
+      }
+      const picked = pickedColor || null;
+      await onSubmit(value, picked, chapterValue);
+      hideModal();
+    });
 
     const btnCancel = document.createElement("button");
     btnCancel.className = "btn btn-ghost";
@@ -1139,35 +1162,20 @@ function init() {
     const idx = mode === "train" ? 1 : 0;
     segWrap.style.setProperty("--seg-index", String(idx));
   };
-  const applyMode = (mode) => {
-    state.mode = mode;
-    document.querySelectorAll(".seg").forEach(b => {
-      b.classList.toggle("active", b.dataset.mode === state.mode);
-    });
-    setSegIndex(state.mode);
-    if (state.mode !== "exam") {
-      stopTimer();
-    } else if (state.timerEnabled && !$("view-quiz").classList.contains("hidden")) {
-      startTimer();
-    }
-    updateTimerDisplay();
-    clearMsg($("setupMsg"));
-  };
-  const toggleMode = () => {
-    applyMode(state.mode === "exam" ? "train" : "exam");
-  };
   setSegIndex(state.mode);
-  if (segWrap) {
-    segWrap.addEventListener("click", (e) => {
-      e.preventDefault();
-      toggleMode();
-    });
-  }
   document.querySelectorAll(".seg").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleMode();
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".seg").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.mode = btn.dataset.mode;
+      setSegIndex(state.mode);
+      if (state.mode !== "exam") {
+        stopTimer();
+      } else if (state.timerEnabled && !$("view-quiz").classList.contains("hidden")) {
+        startTimer();
+      }
+      updateTimerDisplay();
+      clearMsg($("setupMsg"));
     });
   });
 
@@ -1312,6 +1320,15 @@ function init() {
     }
   });
 
+  setupSelectMenu("qcmCountWrap", "qcmCountToggle", "qcmCountMenu", (v) => {
+    const next = Math.min(20, Math.max(1, Math.floor(v)));
+    const qcmCountEl = $("qcmQuestionCount");
+    if (qcmCountEl) {
+      qcmCountEl.value = String(next);
+      qcmCountEl.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+
   // import cards (right panel)
   const jsonBlock = $("jsonBlock");
   const settingsView = $("settingsView");
@@ -1373,10 +1390,25 @@ function init() {
   });
 
   const btnGenerateQcm = $("btnGenerateQcm");
+  const btnUnlockQcm = $("btnUnlockQcm");
+  const qcmCountInput = $("qcmQuestionCount");
+  const clampQcmCount = () => {
+    if (!qcmCountInput) return;
+    const raw = parseInt(qcmCountInput.value || "1", 10);
+    const value = Number.isFinite(raw) ? Math.min(20, Math.max(1, raw)) : 20;
+    qcmCountInput.value = String(value);
+    if (btnUnlockQcm) {
+      btnUnlockQcm.textContent = `Obtenir ${value} question${value > 1 ? "s" : ""}`;
+    }
+  };
+  if (qcmCountInput) {
+    qcmCountInput.addEventListener("input", clampQcmCount);
+    qcmCountInput.addEventListener("blur", clampQcmCount);
+  }
+  clampQcmCount();
   if (btnGenerateQcm) btnGenerateQcm.addEventListener("click", async () => {
-    const countRaw = parseInt($("qcmQuestionCount")?.value || "30", 10);
-    const count = Number.isFinite(countRaw) ? Math.min(60, Math.max(1, countRaw)) : 30;
-    const diff = $("qcmDifficulty")?.value || "moyen";
+    clampQcmCount();
+    const count = 20;
     const msg = $("qcmMsg");
     if (msg) clearMsg(msg);
     if (typeof window.generateQcmFromSelectedPdf !== "function") {
@@ -1384,8 +1416,239 @@ function init() {
       return;
     }
     btnGenerateQcm.disabled = true;
-    await window.generateQcmFromSelectedPdf({ count, difficulty: diff, statusEl: msg });
-    btnGenerateQcm.disabled = false;
+    await window.generateQcmFromSelectedPdf({ count, statusEl: msg });
+    if (typeof window.applyPdfGenerationBlock === "function") {
+      window.applyPdfGenerationBlock();
+      if (typeof window.isPdfGenerationBlockedForCurrentPdf === "function") {
+        btnGenerateQcm.disabled = window.isPdfGenerationBlockedForCurrentPdf();
+      } else {
+        btnGenerateQcm.disabled = false;
+      }
+    } else {
+      btnGenerateQcm.disabled = false;
+    }
+  });
+
+  if (btnUnlockQcm) btnUnlockQcm.addEventListener("click", async () => {
+    clampQcmCount();
+    const countRaw = parseInt($("qcmQuestionCount")?.value || "1", 10);
+    const count = Number.isFinite(countRaw) ? Math.min(20, Math.max(1, countRaw)) : 1;
+    const msg = $("qcmMsg");
+    if (msg) clearMsg(msg);
+    if (typeof window.unlockQcmQuestions !== "function") {
+      if (msg) setMsg(msg, "err", "Fonction indisponible.");
+      return;
+    }
+    btnUnlockQcm.disabled = true;
+    const res = await window.unlockQcmQuestions(count);
+    btnUnlockQcm.disabled = false;
+    if (!res.ok) {
+      if (msg) setMsg(msg, "warn", res.message || "Impossible de débloquer.");
+      return;
+    }
+    if (msg) setMsg(msg, "ok", `${res.unlocked} question(s) ajoutée(s) à la banque.`);
+    if (typeof window.applyPdfGenerationBlock === "function") {
+      window.applyPdfGenerationBlock();
+    }
+  });
+
+  const confirmDanger = ({ title, warning, detail, confirmLabel }) => {
+    return new Promise((resolve) => {
+      const wrap = document.createElement("div");
+      wrap.className = "confirm-card";
+
+      const t = document.createElement("div");
+      t.className = "confirm-title";
+      t.textContent = title || "Confirmation";
+      wrap.appendChild(t);
+
+      const warn = document.createElement("div");
+      warn.className = "confirm-warning";
+      warn.innerHTML = `
+        <div class="confirm-warning-title">Attention</div>
+        <div>${warning || "Cette action est irreversible."}</div>
+      `;
+      wrap.appendChild(warn);
+
+      if (detail) {
+        const meta = document.createElement("div");
+        meta.className = "confirm-meta";
+        meta.textContent = detail;
+        wrap.appendChild(meta);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "confirm-actions";
+      const btnCancel = document.createElement("button");
+      btnCancel.className = "btn btn-ghost";
+      btnCancel.textContent = "Annuler";
+      const btnOk = document.createElement("button");
+      btnOk.className = "btn btn-danger";
+      btnOk.textContent = confirmLabel || "Supprimer";
+      actions.appendChild(btnCancel);
+      actions.appendChild(btnOk);
+      wrap.appendChild(actions);
+
+      let resolved = false;
+      const finish = (value) => {
+        if (resolved) return;
+        resolved = true;
+        hideModal();
+        resolve(value);
+      };
+      btnCancel.addEventListener("click", () => finish(false));
+      btnOk.addEventListener("click", () => finish(true));
+      const modal = $("modal");
+      if (modal) {
+        const onBackdrop = (e) => {
+          if (e.target === modal) finish(false);
+        };
+        modal.addEventListener("click", onBackdrop, { once: true });
+      }
+      showModal(title || "Confirmation", wrap);
+    });
+  };
+
+  const btnManageQcmBank = $("btnManageQcmBank");
+  if (btnManageQcmBank) btnManageQcmBank.addEventListener("click", async () => {
+    const wrap = document.createElement("div");
+    wrap.className = "qcm-bank";
+
+    const head = document.createElement("div");
+    head.className = "qcm-bank-head";
+    head.innerHTML = `
+      <div>
+        <div class="qcm-bank-title">Banque de questions</div>
+        <div class="muted">Gère et supprime les questions de ce chapitre.</div>
+      </div>
+      <div class="qcm-bank-actions">
+        <button id="qcmBankSelectAll" class="btn btn-ghost">Tout sélectionner</button>
+        <button id="qcmBankDelete" class="btn btn-danger" disabled>Supprimer</button>
+        <button id="qcmBankReset" class="btn btn-secondary">Tout réinitialiser</button>
+      </div>
+    `;
+    wrap.appendChild(head);
+
+    const msg = document.createElement("div");
+    msg.id = "qcmBankMsg";
+    msg.className = "msg";
+    wrap.appendChild(msg);
+
+    const list = document.createElement("div");
+    list.className = "qcm-bank-list";
+    wrap.appendChild(list);
+
+    showModal("Banque QCM", wrap);
+
+    const stateSel = new Set();
+    const btnSelectAll = () => $("qcmBankSelectAll");
+    const btnDelete = () => $("qcmBankDelete");
+
+    const updateActions = () => {
+      if (btnDelete()) btnDelete().disabled = stateSel.size === 0;
+      if (btnSelectAll()) {
+        btnSelectAll().textContent = stateSel.size ? "Tout deselectionner" : "Tout sélectionner";
+      }
+    };
+
+    const renderList = (rows) => {
+      list.innerHTML = "";
+      if (!rows.length) {
+        const empty = document.createElement("div");
+        empty.className = "qcm-bank-empty";
+        empty.textContent = "Aucune question en banque pour ce chapitre.";
+        list.appendChild(empty);
+        return;
+      }
+      rows.forEach((row) => {
+        const item = document.createElement("label");
+        item.className = "qcm-bank-item";
+        item.dataset.id = row.id;
+        const checked = stateSel.has(row.id);
+        item.innerHTML = `
+          <input type="checkbox" class="qcm-bank-check" ${checked ? "checked" : ""} />
+          <div class="qcm-bank-body">
+            <div class="qcm-bank-question">${escapeHtml(row.question || "")}</div>
+            <div class="qcm-bank-meta">
+              <span class="qcm-pill">${row.difficulty || "moyen"}</span>
+              <span class="qcm-pill">${row.type || "multi"}</span>
+            </div>
+          </div>
+        `;
+        const box = item.querySelector("input");
+        box.addEventListener("change", () => {
+          if (box.checked) stateSel.add(row.id);
+          else stateSel.delete(row.id);
+          updateActions();
+        });
+        list.appendChild(item);
+      });
+      updateActions();
+    };
+
+    const load = async () => {
+      if (msg) clearMsg(msg);
+      if (typeof window.fetchQcmBankList !== "function") {
+        setMsg(msg, "err", "Fonction indisponible.");
+        renderList([]);
+        return;
+      }
+      const res = await window.fetchQcmBankList();
+      if (!res.ok) {
+        setMsg(msg, "warn", res.message || "Impossible de charger.");
+        renderList([]);
+        return;
+      }
+      renderList(res.data || []);
+    };
+
+    await load();
+
+    btnSelectAll()?.addEventListener("click", () => {
+      const rows = Array.from(list.querySelectorAll(".qcm-bank-item"));
+      const allSelected = rows.length && stateSel.size === rows.length;
+      stateSel.clear();
+      rows.forEach((row) => {
+        const box = row.querySelector(".qcm-bank-check");
+        if (!box) return;
+        if (allSelected) {
+          box.checked = false;
+        } else {
+          box.checked = true;
+          const id = row.dataset?.id;
+          if (id) stateSel.add(id);
+        }
+      });
+      updateActions();
+    });
+
+    btnDelete()?.addEventListener("click", async () => {
+      const ok = await confirmDanger({
+        title: "Supprimer des questions",
+        warning: "Les questions sélectionnées seront supprimées définitivement.",
+        confirmLabel: "Supprimer"
+      });
+      if (!ok) return;
+      if (typeof window.deleteQcmBankQuestions !== "function") return;
+      const res = await window.deleteQcmBankQuestions(Array.from(stateSel));
+      if (!res.ok) return setMsg(msg, "err", res.message || "Suppression impossible.");
+      stateSel.clear();
+      await load();
+    });
+
+    $("qcmBankReset")?.addEventListener("click", async () => {
+      const ok = await confirmDanger({
+        title: "Réinitialiser la banque",
+        warning: "Toutes les questions du chapitre seront supprimées.",
+        confirmLabel: "Tout supprimer"
+      });
+      if (!ok) return;
+      if (typeof window.clearQcmBankForChapter !== "function") return;
+      const res = await window.clearQcmBankForChapter();
+      if (!res.ok) return setMsg(msg, "err", res.message || "Suppression impossible.");
+      stateSel.clear();
+      await load();
+    });
   });
 
   const qcmCountCard = $("qcmCountCard");
@@ -1595,8 +1858,61 @@ function init() {
     if (e.target === $("modal")) hideModal();
   });
 
+  const btnPdfImmersive = $("btnPdfImmersive");
+  const pdfExpandIcon = `
+      <span class="icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 10L4.5 4.5"></path>
+          <path d="M4.5 4.5h4.5"></path>
+          <path d="M4.5 4.5v4.5"></path>
+          <path d="M14 10l5.5-5.5"></path>
+          <path d="M19.5 4.5h-4.5"></path>
+          <path d="M19.5 4.5v4.5"></path>
+          <path d="M10 14l-5.5 5.5"></path>
+          <path d="M4.5 19.5h4.5"></path>
+          <path d="M4.5 19.5v-4.5"></path>
+          <path d="M14 14l5.5 5.5"></path>
+          <path d="M19.5 19.5h-4.5"></path>
+          <path d="M19.5 19.5v-4.5"></path>
+        </svg>
+      </span>`;
+  const pdfExitIcon = `
+      <span class="icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4.5 4.5L10 10"></path>
+          <path d="M10 10H6"></path>
+          <path d="M10 10V6"></path>
+          <path d="M19.5 4.5L14 10"></path>
+          <path d="M14 10h4"></path>
+          <path d="M14 10V6"></path>
+          <path d="M4.5 19.5L10 14"></path>
+          <path d="M10 14H6"></path>
+          <path d="M10 14v4"></path>
+          <path d="M19.5 19.5L14 14"></path>
+          <path d="M14 14h4"></path>
+          <path d="M14 14v4"></path>
+        </svg>
+      </span>`;
+  const updatePdfImmersiveButton = () => {
+    if (!btnPdfImmersive) return;
+    const active = document.body.classList.contains("pdf-immersive");
+    btnPdfImmersive.innerHTML = active ? pdfExitIcon : pdfExpandIcon;
+    btnPdfImmersive.title = active ? "Quitter plein ecran" : "Plein ecran";
+    btnPdfImmersive.setAttribute("aria-label", btnPdfImmersive.title);
+  };
+  window.updatePdfImmersiveButton = updatePdfImmersiveButton;
+  if (btnPdfImmersive) {
+    btnPdfImmersive.addEventListener("click", () => {
+      const active = document.body.classList.contains("pdf-immersive");
+      document.body.classList.toggle("pdf-immersive", !active);
+      updatePdfImmersiveButton();
+    });
+    updatePdfImmersiveButton();
+  }
+
   const closeInlinePdf = () => {
     document.body.classList.remove("pdf-immersive");
+    updatePdfImmersiveButton();
     const wrap = $("pdfInlineViewer");
     const frame = $("pdfInlineFrame");
     const list = $("pdfList");
@@ -1610,6 +1926,7 @@ function init() {
   if (btnCloseInlinePdf) btnCloseInlinePdf.addEventListener("click", closeInlinePdf);
   const btnBackToPdfList = $("btnBackToPdfList");
   if (btnBackToPdfList) btnBackToPdfList.addEventListener("click", closeInlinePdf);
+
   // results filters
   $("btnShowAll").addEventListener("click", () => renderResults("all"));
   $("btnShowWrong").addEventListener("click", () => renderResults("wrong"));
@@ -1627,7 +1944,6 @@ function init() {
   const appShell = document.querySelector(".app-shell");
   const sidebar = document.querySelector(".sidebar");
   const btnSidebar = $("btnSidebar");
-  const sidebarIcon = $("sidebarToggleIcon");
   const stored = localStorage.getItem("qcm_sidebar_collapsed");
   if (stored === "1") {
     appShell?.classList.add("collapsed");

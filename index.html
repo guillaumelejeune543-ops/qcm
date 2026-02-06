@@ -280,6 +280,24 @@
             </div>
           </div>
           <div class="pdf-inline-frame">
+            <button id="btnPdfImmersive" class="pdf-fs-fab" type="button" aria-label="Plein ecran" title="Plein ecran">
+              <span class="icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 10L4.5 4.5"></path>
+                  <path d="M4.5 4.5h4.5"></path>
+                  <path d="M4.5 4.5v4.5"></path>
+                  <path d="M14 10l5.5-5.5"></path>
+                  <path d="M19.5 4.5h-4.5"></path>
+                  <path d="M19.5 4.5v4.5"></path>
+                  <path d="M10 14l-5.5 5.5"></path>
+                  <path d="M4.5 19.5h4.5"></path>
+                  <path d="M4.5 19.5v-4.5"></path>
+                  <path d="M14 14l5.5 5.5"></path>
+                  <path d="M19.5 19.5h-4.5"></path>
+                  <path d="M19.5 19.5v-4.5"></path>
+                </svg>
+              </span>
+            </button>
             <iframe id="pdfInlineFrame" title="PDF" allowfullscreen></iframe>
           </div>
         </div>
@@ -384,20 +402,39 @@
 
       <div id="qcmView" class="mode-view hidden">
         <h3>QCM</h3>
-        <div class="field">
-          <label class="label">Nombre de questions</label>
-          <input id="qcmQuestionCount" class="select" type="number" min="1" max="60" step="1" value="30" />
-        </div>
-        <div class="field">
-          <label class="label">Difficulté</label>
-          <select id="qcmDifficulty" class="select">
-            <option value="facile">Facile</option>
-            <option value="moyen" selected>Moyen</option>
-            <option value="difficile">Difficile</option>
-          </select>
-        </div>
-        <div class="row" style="padding:0;">
-          <button id="btnGenerateQcm" class="btn btn-primary">Générer le QCM</button>
+        <div class="qcm-flow">
+          <div class="qcm-step">
+            <div class="qcm-step-title">Étape 1 · Générer la banque</div>
+            <div class="qcm-step-desc">Envoie les 20 prochaines pages du PDF à l’IA pour créer des questions en attente.</div>
+            <div class="qcm-step-row">
+              <button id="btnGenerateQcm" class="btn btn-secondary">Envoyer les 20 prochaines pages</button>
+              <div id="qcmChunkInfo" class="qcm-step-meta"></div>
+            </div>
+          </div>
+
+          <div class="qcm-step">
+            <div class="qcm-step-title">Étape 2 · Obtenir des questions</div>
+            <div class="qcm-step-desc">Débloque un nombre précis de questions de la banque (pour les crédits plus tard).</div>
+            <div class="qcm-step-row">
+              <div class="qcm-field">
+                <label class="label">Nombre à obtenir</label>
+                <div class="select-wrap" id="qcmCountWrap">
+                  <input id="qcmQuestionCount" class="select" type="number" min="1" max="20" step="1" value="20" />
+                  <button id="qcmCountToggle" class="btn btn-ghost icon-btn select-toggle" type="button" aria-label="Choisir un nombre">
+                    <span class="icon">▾</span>
+                  </button>
+                  <div id="qcmCountMenu" class="select-menu" role="listbox" aria-label="Presets de questions">
+                    <button class="select-item" type="button" data-value="5">5</button>
+                    <button class="select-item" type="button" data-value="10">10</button>
+                    <button class="select-item" type="button" data-value="15">15</button>
+                    <button class="select-item" type="button" data-value="20">20</button>
+                  </div>
+                </div>
+              </div>
+              <button id="btnUnlockQcm" class="btn btn-primary">Obtenir 20 questions</button>
+              <button id="btnManageQcmBank" class="btn btn-ghost">Gérer la banque</button>
+            </div>
+          </div>
         </div>
         <div id="qcmMsg" class="msg"></div>
       </div>
@@ -524,12 +561,13 @@
 
 
 
-<!-- Anti-cache v9 -->
+<!-- Anti-cache v10 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="ui.js?v=9"></script>
-<script src="auth.js?v=9"></script>
-<script src="app.js?v=9"></script>
+<script src="ui.js?v=10"></script>
+<script src="auth.js?v=10"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
 

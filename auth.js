@@ -26,9 +26,14 @@ var supabaseClient = window.supabaseClient || (window.supabaseClient = window.su
 
 if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  if (window.pdfjsLib.VerbosityLevel) {
+    window.pdfjsLib.verbosity = window.pdfjsLib.VerbosityLevel.ERRORS;
+  }
 }
 
 const FILES_BUCKET = "pdfs";
+const QCM_BLOCKS_TABLE = "pdf_generation_blocks";
+const PDF_CHUNK_SIZE = 20;
 let matieres = [];
 let chapitres = [];
 let currentMatiereId = null;
@@ -40,21 +45,18 @@ let pdfThumbQueue = [];
 let pdfThumbRunning = 0;
 const PDF_THUMB_CONCURRENCY = 2;
 let pdfSignedUrlMap = new Map();
-let qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0 };
+let pdfGenerationBlocks = new Map();
+let pdfProgressMap = new Map();
+let pdfPageCountCache = new Map();
+let qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0, pending: 0 };
 const MATIERE_COLORS_KEY = "qcm_matiere_colors";
 const CHAPITRE_COLORS_KEY = "qcm_chapitre_colors";
 const MATIERE_PALETTE = [
-  // Reds / Pinks
   "#FF6B6B", "#FF5C8D", "#FF7A8A", "#FF4D6D",
-  // Oranges / Yellows
   "#FF9F43", "#FFC15A", "#FFD166", "#F9C74F",
-  // Greens
   "#6BCB77", "#4CDCA0", "#2ED573", "#10AC84",
-  // Teals / Cyans
   "#00D2D3", "#1ABC9C", "#22C1C3", "#4DADF7",
-  // Blues
   "#4D96FF", "#3A86FF", "#5B8CFF", "#6C63FF",
-  // Purples
   "#9B5DE5", "#B983FF", "#7B2CBF", "#6D214F"
 ];
 window.MATIERE_PALETTE = MATIERE_PALETTE;
@@ -155,11 +157,26 @@ function fmtBytes(bytes) {
   return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + " " + sizes[i];
 }
 
+function sanitizePdfName(name) {
+  const base = String(name || "document.pdf");
+  const normalized = base.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const safe = normalized
+    .replace(/[^a-zA-Z0-9._ -]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/ /g, "_");
+  return safe || "document.pdf";
+}
+
 function openPdfInModal(url, name) {
   const wrap = $("pdfInlineViewer");
   const frame = $("pdfInlineFrame");
   const title = $("pdfInlineTitle");
   if (!wrap || !frame) return;
+  document.body.classList.remove("pdf-immersive");
+  if (typeof window.updatePdfImmersiveButton === "function") {
+    window.updatePdfImmersiveButton();
+  }
   if (title) title.textContent = name || "PDF";
   frame.src = url;
   frame.title = name || "PDF";
@@ -176,6 +193,10 @@ function closeInlinePdfViewer() {
   const frame = $("pdfInlineFrame");
   const list = $("pdfList");
   const block = $("pdfBlock");
+  document.body.classList.remove("pdf-immersive");
+  if (typeof window.updatePdfImmersiveButton === "function") {
+    window.updatePdfImmersiveButton();
+  }
   if (frame) frame.src = "";
   if (wrap) wrap.classList.add("hidden");
   if (list) list.classList.remove("hidden");
@@ -221,7 +242,6 @@ function setCurrentChapitre(id, opts = {}) {
     window.setCardsEnabled(!!currentMatiereId && !!currentChapitreId);
   }
   renderChapitreList();
-  const hasChapitre = !!currentChapitreId;
   updateEmptyPanels();
   const pdfInput = $("pdfInput");
   if (pdfInput) pdfInput.disabled = !currentChapitreId;
@@ -254,23 +274,24 @@ function setCurrentChapitre(id, opts = {}) {
       : escapeHtml(chapitreLabel);
     const mColor = getMatiereColor(matiere.id) || "var(--primary)";
     const cColor = chapitre ? (getChapitreColor(chapitre.id) || "var(--primary)") : "var(--primary)";
-      target.innerHTML = `
-        <span class="context-title">
-          <span class="context-left">
-            <span class="context-label">Matière</span>
-            <span class="context-pill" style="--ctx-color:${mColor}">${mName}</span>
-            <span class="context-label">Chapitre</span>
-            <span class="context-pill" style="--ctx-color:${cColor}">${cName}</span>
-          </span>
-          <span class="context-spacer"></span>
+    target.innerHTML = `
+      <span class="context-title">
+        <span class="context-left">
+          <span class="context-label">Matière</span>
+          <span class="context-pill" style="--ctx-color:${mColor}">${mName}</span>
+          <span class="context-label">Chapitre</span>
+          <span class="context-pill" style="--ctx-color:${cColor}">${cName}</span>
         </span>
-      `;
-    };
+        <span class="context-spacer"></span>
+      </span>
+    `;
+  };
   if (title) title.textContent = "PDFs du chapitre";
   renderContext(headerTitle);
   if (chapTitle) {
     chapTitle.textContent = matiere ? `Chapitres — ${matiere.name}` : "Chapitres";
   }
+  updateQcmChunkInfo(null);
   loadChapterStats();
 
   if (!opts.skipList) listUserPdfs();
@@ -432,6 +453,7 @@ function renderChapitreList() {
   const list = $("sideChapitresList");
   if (!list) return;
   list.innerHTML = "";
+  document.querySelectorAll(".chapitre-palette").forEach(p => p.remove());
 
   chapitres.forEach(ch => {
     const item = document.createElement("button");
@@ -505,7 +527,7 @@ function setChapterCounts(qcmCount = 0, flashCount = 0) {
 
 async function loadChapterStats() {
   if (!state.user || !currentChapitreId) {
-    qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0 };
+    qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0, pending: 0 };
     setChapterCounts(0, 0);
     return;
   }
@@ -515,27 +537,38 @@ async function loadChapterStats() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", state.user.id)
       .eq("chapitre_id", currentChapitreId)
+      .eq("is_unlocked", true)
       .eq("difficulty", "facile");
     const { count: qcmMoyen, error: qcmErr2 } = await supabaseClient
       .from(QCM_QUESTIONS_TABLE)
       .select("id", { count: "exact", head: true })
       .eq("user_id", state.user.id)
       .eq("chapitre_id", currentChapitreId)
+      .eq("is_unlocked", true)
       .eq("difficulty", "moyen");
     const { count: qcmDiff, error: qcmErr3 } = await supabaseClient
       .from(QCM_QUESTIONS_TABLE)
       .select("id", { count: "exact", head: true })
       .eq("user_id", state.user.id)
       .eq("chapitre_id", currentChapitreId)
+      .eq("is_unlocked", true)
       .eq("difficulty", "difficile");
+    const { count: qcmPending, error: qcmErr4 } = await supabaseClient
+      .from(QCM_QUESTIONS_TABLE)
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", state.user.id)
+      .eq("chapitre_id", currentChapitreId)
+      .eq("is_unlocked", false);
     if (qcmErr1) console.error("loadChapterStats qcm facile error:", qcmErr1);
     if (qcmErr2) console.error("loadChapterStats qcm moyen error:", qcmErr2);
     if (qcmErr3) console.error("loadChapterStats qcm difficile error:", qcmErr3);
+    if (qcmErr4) console.error("loadChapterStats qcm pending error:", qcmErr4);
     qcmCounts = {
       facile: qcmFacile || 0,
       moyen: qcmMoyen || 0,
       difficile: qcmDiff || 0,
-      total: (qcmFacile || 0) + (qcmMoyen || 0) + (qcmDiff || 0)
+      total: (qcmFacile || 0) + (qcmMoyen || 0) + (qcmDiff || 0),
+      pending: qcmPending || 0
     };
 
     const { count: flashCount, error: flashErr } = await supabaseClient
@@ -546,15 +579,286 @@ async function loadChapterStats() {
     if (flashErr) console.error("loadChapterStats flash error:", flashErr);
 
     setChapterCounts(qcmCounts.total || 0, flashCount || 0);
+    if (currentPdfName) updateQcmChunkInfo(currentPdfName);
   } catch (err) {
     console.error("loadChapterStats error:", err);
-    qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0 };
+    qcmCounts = { total: 0, facile: 0, moyen: 0, difficile: 0, pending: 0 };
     setChapterCounts(0, 0);
   }
 }
 
 function setCurrentPdf(name) {
   currentPdfName = name || null;
+  applyPdfGenerationBlock();
+  window.currentPdfName = currentPdfName;
+  updateQcmChunkInfo(currentPdfName);
+}
+
+function getPdfGenerationBlock(fileName) {
+  if (!fileName) return null;
+  return pdfGenerationBlocks.get(fileName) || null;
+}
+
+async function ensurePdfGenerationBlockLoaded(fileName) {
+  if (!state.user || !fileName) return null;
+  const cached = pdfGenerationBlocks.get(fileName);
+  if (cached) return cached;
+  const { data, error } = await supabaseClient
+    .from(QCM_BLOCKS_TABLE)
+    .select("file_name, reason, blocked_at")
+    .eq("user_id", state.user.id)
+    .eq("file_name", fileName)
+    .limit(1);
+  if (error) {
+    console.error("ensurePdfGenerationBlockLoaded error:", error);
+    return null;
+  }
+  const row = data && data[0];
+  if (!row?.file_name) return null;
+  const block = {
+    blocked: true,
+    reason: row.reason || "",
+    at: row.blocked_at || null
+  };
+  pdfGenerationBlocks.set(fileName, block);
+  return block;
+}
+
+async function loadPdfGenerationBlocks(fileNames = []) {
+  pdfGenerationBlocks = new Map();
+  if (!state.user || !Array.isArray(fileNames) || !fileNames.length) return;
+  const { data, error } = await supabaseClient
+    .from(QCM_BLOCKS_TABLE)
+    .select("file_name, reason, blocked_at")
+    .eq("user_id", state.user.id)
+    .in("file_name", fileNames);
+  if (error) {
+    console.error("loadPdfGenerationBlocks error:", error);
+    return;
+  }
+  (data || []).forEach(row => {
+    if (!row?.file_name) return;
+    pdfGenerationBlocks.set(row.file_name, {
+      blocked: true,
+      reason: row.reason || "",
+      at: row.blocked_at || null
+    });
+  });
+}
+
+async function setPdfGenerationBlocked(fileName, reason) {
+  if (!state.user || !fileName) return;
+  const payload = {
+    user_id: state.user.id,
+    file_name: fileName,
+    reason: String(reason || "").trim(),
+    blocked_at: new Date().toISOString()
+  };
+  const { error } = await supabaseClient
+    .from(QCM_BLOCKS_TABLE)
+    .upsert(payload, { onConflict: "user_id,file_name" });
+  if (error) {
+    console.error("setPdfGenerationBlocked error:", error);
+    // fallback local session block
+    pdfGenerationBlocks.set(fileName, { blocked: true, reason: payload.reason, at: payload.blocked_at, localOnly: true });
+    applyPdfGenerationBlock();
+    return false;
+  }
+  pdfGenerationBlocks.set(fileName, { blocked: true, reason: payload.reason, at: payload.blocked_at });
+  applyPdfGenerationBlock();
+  return true;
+}
+
+async function clearPdfGenerationBlocked(fileName) {
+  if (!state.user || !fileName) return;
+  await supabaseClient
+    .from(QCM_BLOCKS_TABLE)
+    .delete()
+    .eq("user_id", state.user.id)
+    .eq("file_name", fileName);
+  pdfGenerationBlocks.delete(fileName);
+}
+
+function applyPdfGenerationBlock() {
+  const btn = $("btnGenerateQcm");
+  const msg = $("qcmMsg");
+  const block = currentPdfName ? getPdfGenerationBlock(currentPdfName) : null;
+  if (btn) btn.disabled = !!block;
+  if (msg) {
+    if (block) {
+      const base = "Ce PDF semble déjà couvert. Pour éviter les doublons, la génération est bloquée.";
+      const extra = block.reason ? ` ${block.reason}` : "";
+      setMsg(msg, "warn", `${base}${extra}`);
+    } else {
+      clearMsg(msg);
+    }
+  }
+}
+window.applyPdfGenerationBlock = applyPdfGenerationBlock;
+window.isPdfGenerationBlockedForCurrentPdf = () => {
+  if (!currentPdfName) return false;
+  return !!getPdfGenerationBlock(currentPdfName);
+};
+
+async function ensurePdfProgress(fileName) {
+  if (!state.user || !fileName) return { pageCount: null, lastProcessed: 0 };
+  const cached = pdfProgressMap.get(fileName);
+  if (cached) return cached;
+  const { data, error } = await supabaseClient
+    .from(PDF_INDEX_TABLE)
+    .select("page_count, last_page_processed")
+    .eq("user_id", state.user.id)
+    .eq("file_name", fileName)
+    .limit(1);
+  if (error) {
+    console.error("ensurePdfProgress error:", error);
+    return { pageCount: null, lastProcessed: 0 };
+  }
+  const row = data && data[0];
+  const progress = {
+    pageCount: row?.page_count || null,
+    lastProcessed: row?.last_page_processed || 0
+  };
+  pdfProgressMap.set(fileName, progress);
+  return progress;
+}
+
+async function updatePdfProgress(fileName, patch = {}) {
+  if (!state.user || !fileName) return;
+  const current = await ensurePdfProgress(fileName);
+  const next = {
+    pageCount: patch.pageCount ?? current.pageCount ?? null,
+    lastProcessed: patch.lastProcessed ?? current.lastProcessed ?? 0
+  };
+  pdfProgressMap.set(fileName, next);
+  await supabaseClient
+    .from(PDF_INDEX_TABLE)
+    .update({
+      page_count: next.pageCount,
+      last_page_processed: next.lastProcessed
+    })
+    .eq("user_id", state.user.id)
+    .eq("file_name", fileName);
+}
+
+async function getPdfPageCount(fileName) {
+  if (!state.user || !fileName || !window.pdfjsLib) return null;
+  if (pdfPageCountCache.has(fileName)) return pdfPageCountCache.get(fileName);
+  let url = pdfSignedUrlMap.get(fileName);
+  if (!url) {
+    const { data: urlData, error: urlErr } = await supabaseClient
+      .storage
+      .from(FILES_BUCKET)
+      .createSignedUrl(`${state.user.id}/${fileName}`, 180);
+    if (urlErr || !urlData?.signedUrl) return null;
+    url = urlData.signedUrl;
+  }
+  try {
+    const loadingTask = window.pdfjsLib.getDocument({ url, disableFontFace: true, useSystemFonts: true });
+    const pdf = await loadingTask.promise;
+    const count = pdf.numPages || null;
+    if (count) pdfPageCountCache.set(fileName, count);
+    return count;
+  } catch (err) {
+    console.error("getPdfPageCount error:", err);
+    return null;
+  }
+}
+
+async function updateQcmChunkInfo(fileName) {
+  const info = $("qcmChunkInfo");
+  if (!info) return;
+  if (!fileName) {
+    info.textContent = "Selectionne un PDF pour envoyer les pages.";
+    return;
+  }
+  info.textContent = "Calcul des pages...";
+  const pending = typeof window.fetchQcmPendingCount === "function"
+    ? await window.fetchQcmPendingCount()
+    : (qcmCounts.pending || 0);
+  const progress = await ensurePdfProgress(fileName);
+  let total = progress.pageCount;
+  if (!total) {
+    total = await getPdfPageCount(fileName);
+    if (total) await updatePdfProgress(fileName, { pageCount: total });
+  }
+  const last = progress.lastProcessed || 0;
+  if (total && last >= total) {
+    info.textContent = pending
+      ? `Toutes les pages ont déjà été envoyées. ${pending} questions en attente (à débloquer).`
+      : "Toutes les pages ont déjà été envoyées.";
+    return;
+  }
+  const start = last + 1;
+  const end = total ? Math.min(last + PDF_CHUNK_SIZE, total) : last + PDF_CHUNK_SIZE;
+  const base = total
+    ? `Prochain envoi : pages ${start}-${end} sur ${total}`
+    : `Prochain envoi : pages ${start}-${end}`;
+  info.textContent = pending ? `${base} · ${pending} questions en attente (à débloquer)` : base;
+}
+
+function confirmPdfDelete(fileName) {
+  return new Promise((resolve) => {
+    const wrap = document.createElement("div");
+    wrap.className = "confirm-card";
+
+    const title = document.createElement("div");
+    title.className = "confirm-title";
+    title.textContent = "Supprimer ce PDF ?";
+    wrap.appendChild(title);
+
+    const warning = document.createElement("div");
+    warning.className = "confirm-warning";
+    warning.innerHTML = `
+      <div class="confirm-warning-title">Attention</div>
+      <div>Ce PDF sera supprimé définitivement.</div>
+      <div>Les questions QCM générées depuis ce PDF seront aussi supprimées.</div>
+    `;
+    wrap.appendChild(warning);
+
+    const meta = document.createElement("div");
+    meta.className = "confirm-meta";
+    meta.textContent = fileName || "PDF sélectionné";
+    wrap.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "confirm-actions";
+
+    const btnCancel = document.createElement("button");
+    btnCancel.className = "btn btn-ghost";
+    btnCancel.textContent = "Annuler";
+
+    const btnDelete = document.createElement("button");
+    btnDelete.className = "btn btn-danger";
+    btnDelete.textContent = "Supprimer";
+
+    actions.appendChild(btnCancel);
+    actions.appendChild(btnDelete);
+    wrap.appendChild(actions);
+
+    let resolved = false;
+    const finish = (value) => {
+      if (resolved) return;
+      resolved = true;
+      hideModal();
+      resolve(value);
+    };
+
+    btnCancel.addEventListener("click", () => finish(false));
+    btnDelete.addEventListener("click", () => finish(true));
+
+    const modal = $("modal");
+    const modalClose = $("modalClose");
+    if (modal) {
+      const onBackdrop = (e) => {
+        if (e.target === modal) finish(false);
+      };
+      modal.addEventListener("click", onBackdrop, { once: true });
+    }
+    if (modalClose) modalClose.addEventListener("click", () => finish(false), { once: true });
+
+    showModal("Suppression PDF", wrap);
+  });
 }
 
 async function createMatiere(name, color, chapterName) {
@@ -620,14 +924,35 @@ async function deleteChapitre(id) {
     .eq("chapitre_id", id)
     .eq("user_id", state.user.id);
   const files = (pdfRows || []).map(r => r.file_name).filter(Boolean);
+  const openaiIds = (pdfRows || []).map(r => r.openai_file_id).filter(Boolean);
   if (files.length) {
     await supabaseClient
       .storage
       .from(FILES_BUCKET)
       .remove(files.map(f => `${state.user.id}/${f}`));
+    try {
+      await supabaseClient
+        .from(QCM_BLOCKS_TABLE)
+        .delete()
+        .eq("user_id", state.user.id)
+        .in("file_name", files);
+    } catch {}
+  }
+  if (openaiIds.length) {
+    await deleteOpenAiFiles(openaiIds);
   }
   await supabaseClient
     .from(PDF_INDEX_TABLE)
+    .delete()
+    .eq("chapitre_id", id)
+    .eq("user_id", state.user.id);
+  await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .delete()
+    .eq("chapitre_id", id)
+    .eq("user_id", state.user.id);
+  await supabaseClient
+    .from(FLASH_SETS_TABLE)
     .delete()
     .eq("chapitre_id", id)
     .eq("user_id", state.user.id);
@@ -637,6 +962,7 @@ async function deleteChapitre(id) {
     .eq("id", id)
     .eq("user_id", state.user.id);
   if (currentChapitreId === id) currentChapitreId = null;
+  closeInlinePdfViewer();
   const msgEl = $("chapitreMsg") || folderMsgEl();
   setMsg(msgEl, "ok", "Chapitre supprimé.");
   setTimeout(() => clearMsg(msgEl), 2200);
@@ -721,45 +1047,6 @@ function confirmDeleteChapitre(chapitreName, onConfirm) {
   showModal("Confirmation", wrap);
 }
 
-function confirmDeletePdf(fileName, onConfirm) {
-  const wrap = document.createElement("div");
-  wrap.className = "auth-card confirm-pop";
-
-  const title = document.createElement("div");
-  title.className = "confirm-title";
-  title.textContent = "Supprimer le PDF ?";
-  wrap.appendChild(title);
-
-  const desc = document.createElement("div");
-  desc.className = "confirm-text";
-  desc.textContent = `Le fichier "${fileName}" sera supprimé.`;
-  wrap.appendChild(desc);
-
-  const actions = document.createElement("div");
-  actions.className = "row";
-  actions.style.padding = "0";
-  actions.style.marginTop = "10px";
-
-  const btnCancel = document.createElement("button");
-  btnCancel.className = "btn btn-ghost";
-  btnCancel.textContent = "Annuler";
-  btnCancel.addEventListener("click", hideModal);
-
-  const btnDelete = document.createElement("button");
-  btnDelete.className = "btn btn-danger";
-  btnDelete.textContent = "Supprimer";
-  btnDelete.addEventListener("click", () => {
-    hideModal();
-    onConfirm();
-  });
-
-  actions.appendChild(btnCancel);
-  actions.appendChild(btnDelete);
-  wrap.appendChild(actions);
-
-  showModal("Confirmation", wrap);
-}
-
 async function deleteMatiere(id) {
   if (!state.user || !id) return;
   try {
@@ -772,15 +1059,26 @@ async function deleteMatiere(id) {
     if (chapitreIds.length) {
       const { data: pdfRows } = await supabaseClient
         .from(PDF_INDEX_TABLE)
-        .select("file_name")
+        .select("file_name, openai_file_id")
         .eq("user_id", state.user.id)
         .in("chapitre_id", chapitreIds);
       const files = (pdfRows || []).map(r => r.file_name).filter(Boolean);
+      const openaiIds = (pdfRows || []).map(r => r.openai_file_id).filter(Boolean);
       if (files.length) {
         await supabaseClient
           .storage
           .from(FILES_BUCKET)
           .remove(files.map(f => `${state.user.id}/${f}`));
+        try {
+          await supabaseClient
+            .from(QCM_BLOCKS_TABLE)
+            .delete()
+            .eq("user_id", state.user.id)
+            .in("file_name", files);
+        } catch {}
+      }
+      if (openaiIds.length) {
+        await deleteOpenAiFiles(openaiIds);
       }
       await supabaseClient
         .from(PDF_INDEX_TABLE)
@@ -813,6 +1111,7 @@ async function deleteMatiere(id) {
       currentChapitreId = null;
       currentPdfName = null;
     }
+    closeInlinePdfViewer();
     const msgEl = $("folderMsg") || folderMsgEl();
     setMsg(msgEl, "ok", "Matière supprimée.");
     setTimeout(() => clearMsg(msgEl), 2200);
@@ -830,26 +1129,98 @@ async function setFileChapitre(fileName, chapitreId) {
     .upsert({ user_id: state.user.id, file_name: fileName, chapitre_id: chapitreId }, { onConflict: "user_id,file_name" });
 }
 
+async function getExistingQuestionTexts() {
+  if (!state.user || !currentChapitreId) return [];
+  const { data, error } = await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .select("question")
+    .eq("user_id", state.user.id)
+    .eq("chapitre_id", currentChapitreId);
+  if (error) {
+    console.error("getExistingQuestionTexts error:", error);
+    return [];
+  }
+  return (data || []).map(row => row.question).filter(Boolean);
+}
+
+async function buildPdfChunk(fileName, startPage, endPage) {
+  if (!state.user || !fileName) return null;
+  if (!window.PDFLib || !window.PDFLib.PDFDocument) {
+    throw new Error("PDFLib indisponible.");
+  }
+  const safeName = sanitizePdfName(fileName).replace(/\.pdf$/i, "");
+  const chunkName = `${safeName}_p${startPage}-${endPage}.pdf`;
+  const chunkPath = `${state.user.id}/chunks/${chunkName}`;
+
+  const { data: urlData, error: urlErr } = await supabaseClient
+    .storage
+    .from(FILES_BUCKET)
+    .createSignedUrl(`${state.user.id}/${fileName}`, 180);
+  if (urlErr || !urlData?.signedUrl) throw new Error("Lien temporaire impossible.");
+
+  const pdfRes = await fetch(urlData.signedUrl);
+  if (!pdfRes.ok) throw new Error("Telechargement PDF impossible.");
+  const pdfBytes = await pdfRes.arrayBuffer();
+
+  const srcDoc = await window.PDFLib.PDFDocument.load(pdfBytes);
+  const newDoc = await window.PDFLib.PDFDocument.create();
+  const pageIndices = [];
+  for (let i = startPage - 1; i < endPage; i++) pageIndices.push(i);
+  const pages = await newDoc.copyPages(srcDoc, pageIndices);
+  pages.forEach(page => newDoc.addPage(page));
+  const newBytes = await newDoc.save();
+
+  const { error: upErr } = await supabaseClient
+    .storage
+    .from(FILES_BUCKET)
+    .upload(chunkPath, newBytes, { contentType: "application/pdf", upsert: true });
+  if (upErr) throw new Error("Upload du bloc PDF impossible.");
+
+  const { data: chunkUrlData, error: chunkUrlErr } = await supabaseClient
+    .storage
+    .from(FILES_BUCKET)
+    .createSignedUrl(chunkPath, 180);
+  if (chunkUrlErr || !chunkUrlData?.signedUrl) throw new Error("Lien bloc PDF impossible.");
+
+  return { chunkUrl: chunkUrlData.signedUrl, chunkPath, chunkName, totalPages: srcDoc.getPageCount() };
+}
+
 async function createQcmFromPdf(fileName, options = {}) {
   if (!state.user) return setMsg($("pdfMsg"), "warn", "Connecte-toi d'abord.");
   setCurrentPdf(fileName);
   const status = $("pdfMsg");
   setMsg(status, "warn", "Generation du QCM en cours...");
 
-  const { data: urlData, error: urlErr } = await supabaseClient
-    .storage
-    .from(FILES_BUCKET)
-    .createSignedUrl(`${state.user.id}/${fileName}`, 180);
-  if (urlErr) return setMsg(status, "err", "Lien temporaire impossible.");
-
   const { data: refreshed, error: refreshErr } = await supabaseClient.auth.refreshSession();
   const accessToken = refreshed.session?.access_token;
   if (refreshErr) console.error("refreshSession error:", refreshErr);
   if (!accessToken) return setMsg(status, "err", "Session invalide. Reconnecte-toi.");
 
-  let openaiFileId = await getOpenAiFileId(fileName);
   const titleHint = titleFromFilename(fileName);
+  const existingQuestions = await getExistingQuestionTexts();
+  const progress = await ensurePdfProgress(fileName);
+  let totalPages = progress.pageCount;
+  if (!totalPages) {
+    totalPages = await getPdfPageCount(fileName);
+  }
+  const last = progress.lastProcessed || 0;
+  if (totalPages && last >= totalPages) {
+    setMsg(status, "warn", "Toutes les pages ont deja ete envoyees pour ce PDF.");
+    await setPdfGenerationBlocked(fileName, "Toutes les pages ont deja ete traitees.");
+    updateQcmChunkInfo(fileName);
+    return;
+  }
+  const startPage = last + 1;
+  const endPage = totalPages ? Math.min(last + PDF_CHUNK_SIZE, totalPages) : last + PDF_CHUNK_SIZE;
+  setMsg(status, "warn", `Envoi des pages ${startPage}-${endPage} a l'IA...`);
+
+  let chunkInfo = null;
   try {
+    chunkInfo = await buildPdfChunk(fileName, startPage, endPage);
+    if (!totalPages && chunkInfo?.totalPages) {
+      totalPages = chunkInfo.totalPages;
+      await updatePdfProgress(fileName, { pageCount: totalPages });
+    }
     const res = await fetch(QCM_FUNCTION_URL, {
       method: "POST",
       headers: {
@@ -858,12 +1229,12 @@ async function createQcmFromPdf(fileName, options = {}) {
         "apikey": SUPABASE_ANON
       },
       body: JSON.stringify({
-        pdfUrl: urlData.signedUrl,
+        pdfUrl: chunkInfo.chunkUrl,
         titleHint,
-        openai_file_id: openaiFileId,
-        fileName,
+        fileName: chunkInfo.chunkName,
         questionCount: options.questionCount,
-        difficulty: options.difficulty
+        existingQuestions,
+        pageRange: `${startPage}-${endPage}`
       })
     });
     const payload = await res.json().catch(() => ({}));
@@ -872,61 +1243,94 @@ async function createQcmFromPdf(fileName, options = {}) {
       return setMsg(status, "err", msg);
     }
 
-    if (payload.openai_file_id && payload.openai_file_id !== openaiFileId) {
-      await saveOpenAiFileId(fileName, payload.openai_file_id);
-    }
-
-    if (currentChapitreId && Array.isArray(payload.data.questions)) {
-      await saveQuestionsToBank(payload.data.questions, {
+    const questions = Array.isArray(payload.data.questions) ? payload.data.questions : [];
+    if (currentChapitreId && questions.length) {
+      await saveQuestionsToBank(questions, {
         source: "pdf",
-        title: payload.data.title || titleHint || "QCM"
+        title: payload.data.title || titleHint || "QCM",
+        pdf_file_name: fileName,
+        is_unlocked: false
       });
     }
 
-    const jsonText = JSON.stringify(payload.data, null, 2);
-    const jsonInput = $("jsonInput");
-    if (jsonInput) jsonInput.value = jsonText;
-    const titleInput = $("qcmTitleInput");
-    if (titleInput) titleInput.value = payload.data.title || titleHint || "";
+    const requested = Number.isFinite(options.questionCount) ? options.questionCount : null;
+    const got = questions.length;
+    const noteText = String(payload.data.note || "").trim();
+    const shouldBlock = (requested && got < requested) || !!noteText;
+    if (!got) {
+      setMsg(status, "warn", "Aucune question n'a ete generee pour ces pages.");
+    } else if (shouldBlock) {
+      const explain = "Toutes les questions distinctes possibles pour ce PDF semblent deja couvertes.";
+      const note = noteText ? ` ${noteText}` : "";
+      if (requested && got < requested) {
+        setMsg(status, "warn", `Seulement ${got}/${requested} questions generees. ${explain}${note}`);
+      } else {
+        setMsg(status, "warn", `${explain}${note}`);
+      }
+      if (fileName) {
+        setCurrentPdf(fileName);
+        const ok = await setPdfGenerationBlocked(fileName, noteText || explain);
+        if (!ok) {
+          setMsg(status, "warn", "Blocage local applique mais l'enregistrement en base a echoue. Verifie les droits RLS.");
+        }
+      }
+    } else {
+      setMsg(status, "ok", `Questions ajoutees en attente (${got}).`);
+    }
 
-    const ok = loadQuestionsFromJsonText(jsonText);
-    if (ok) {
-      setMsg(status, "ok", "QCM genere et charge.");
-      goStep("quiz");
+    await updatePdfProgress(fileName, {
+      pageCount: totalPages || null,
+      lastProcessed: endPage
+    });
+    updateQcmChunkInfo(fileName);
+    if (totalPages && endPage >= totalPages) {
+      await setPdfGenerationBlocked(fileName, "Toutes les pages ont deja ete traitees.");
     }
   } catch (err) {
     setMsg(status, "err", "Erreur reseau ou serveur.");
+  } finally {
+    if (chunkInfo?.chunkPath) {
+      try {
+        await supabaseClient.storage.from(FILES_BUCKET).remove([chunkInfo.chunkPath]);
+      } catch {}
+    }
   }
 }
 
-window.generateQcmFromSelectedPdf = async ({ count, difficulty, statusEl }) => {
+window.generateQcmFromSelectedPdf = async ({ count, statusEl }) => {
   if (!currentPdfName) {
     if (statusEl) setMsg(statusEl, "warn", "Selectionne un PDF d'abord.");
+    return;
+  }
+  const block = await ensurePdfGenerationBlockLoaded(currentPdfName);
+  if (block) {
+    if (statusEl) {
+      const base = "Generation bloquee pour ce PDF (risque de doublons).";
+      const extra = block.reason ? ` ${block.reason}` : "";
+      setMsg(statusEl, "warn", `${base}${extra}`);
+    }
     return;
   }
   if (!currentChapitreId) {
     if (statusEl) setMsg(statusEl, "warn", "Selectionne un chapitre d'abord.");
     return;
   }
-  if (!Number.isFinite(count) || count < 1 || count > 60) {
-    if (statusEl) setMsg(statusEl, "warn", "Nombre de questions invalide (1-60).");
-    return;
-  }
-  const diffOk = ["facile","moyen","difficile"].includes(difficulty);
-  if (!diffOk) {
-    if (statusEl) setMsg(statusEl, "warn", "Difficulte invalide.");
+  if (!Number.isFinite(count) || count < 1 || count > 20) {
+    if (statusEl) setMsg(statusEl, "warn", "Nombre de questions invalide (1-20).");
     return;
   }
   if (statusEl) setMsg(statusEl, "warn", "Generation du QCM en cours...");
   await createQcmFromPdf(currentPdfName, {
-    questionCount: count,
-    difficulty
+    questionCount: count
   });
   if (statusEl) clearMsg(statusEl);
 };
 
 async function saveQuestionsToBank(questions, meta = {}) {
   if (!state.user || !currentChapitreId || !Array.isArray(questions) || !questions.length) return;
+  const unlock = meta.is_unlocked !== undefined
+    ? !!meta.is_unlocked
+    : (meta.source === "pdf" ? false : true);
   const rows = questions.map(q => ({
     user_id: state.user.id,
     chapitre_id: currentChapitreId,
@@ -935,6 +1339,8 @@ async function saveQuestionsToBank(questions, meta = {}) {
     question: q.question || "",
     title: meta.title || null,
     source: meta.source || "json",
+    pdf_file_name: meta.pdf_file_name || null,
+    is_unlocked: unlock,
     payload: q
   }));
   const { error } = await supabaseClient.from(QCM_QUESTIONS_TABLE).insert(rows);
@@ -962,12 +1368,117 @@ window.fetchQcmQuestions = async (difficulty) => {
     .select("payload")
     .eq("user_id", state.user.id)
     .eq("chapitre_id", currentChapitreId)
+    .eq("is_unlocked", true)
     .eq("difficulty", difficulty);
   if (error) {
     console.error("fetchQcmQuestions error:", error);
     return [];
   }
   return (data || []).map(r => r.payload).filter(Boolean);
+};
+
+window.fetchQcmBankList = async () => {
+  if (!state.user || !currentChapitreId) {
+    return { ok: false, message: "Selectionne un chapitre d'abord.", data: [] };
+  }
+  const { data, error } = await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .select("id, question, difficulty, type, created_at")
+    .eq("user_id", state.user.id)
+    .eq("chapitre_id", currentChapitreId)
+    .eq("is_unlocked", true)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("fetchQcmBankList error:", error);
+    return { ok: false, message: "Impossible de charger la banque.", data: [] };
+  }
+  return { ok: true, data: data || [] };
+};
+
+window.fetchQcmPendingCount = async () => {
+  if (!state.user || !currentChapitreId) return 0;
+  const { count, error } = await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", state.user.id)
+    .eq("chapitre_id", currentChapitreId)
+    .eq("is_unlocked", false);
+  if (error) {
+    console.error("fetchQcmPendingCount error:", error);
+    return 0;
+  }
+  return count || 0;
+};
+
+window.unlockQcmQuestions = async (count) => {
+  if (!state.user || !currentChapitreId) {
+    return { ok: false, message: "Selectionne un chapitre d'abord." };
+  }
+  const n = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 0;
+  if (!n) return { ok: false, message: "Nombre invalide." };
+  const { data, error } = await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .select("id")
+    .eq("user_id", state.user.id)
+    .eq("chapitre_id", currentChapitreId)
+    .eq("is_unlocked", false)
+    .order("created_at", { ascending: true })
+    .limit(n);
+  if (error) {
+    console.error("unlockQcmQuestions select error:", error);
+    return { ok: false, message: "Impossible de charger les questions en attente." };
+  }
+  const ids = (data || []).map(r => r.id).filter(Boolean);
+  if (!ids.length) return { ok: false, message: "Aucune question en attente." };
+  const { error: upErr } = await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .update({ is_unlocked: true })
+    .in("id", ids);
+  if (upErr) {
+    console.error("unlockQcmQuestions update error:", upErr);
+    return { ok: false, message: "Impossible de débloquer les questions." };
+  }
+  await loadChapterStats();
+  return { ok: true, unlocked: ids.length };
+};
+
+window.deleteQcmBankQuestions = async (ids = []) => {
+  if (!state.user || !currentChapitreId) {
+    return { ok: false, message: "Selectionne un chapitre d'abord." };
+  }
+  const list = Array.isArray(ids) ? ids.filter(Boolean) : [];
+  if (!list.length) return { ok: false, message: "Aucune question selectionnee." };
+  const { error } = await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .delete()
+    .eq("user_id", state.user.id)
+    .eq("chapitre_id", currentChapitreId)
+    .eq("is_unlocked", true)
+    .in("id", list);
+  if (error) {
+    console.error("deleteQcmBankQuestions error:", error);
+    return { ok: false, message: "Suppression impossible." };
+  }
+  await loadChapterStats();
+  return { ok: true };
+};
+
+window.clearQcmBankForChapter = async () => {
+  if (!state.user || !currentChapitreId) {
+    return { ok: false, message: "Selectionne un chapitre d'abord." };
+  }
+  const { error } = await supabaseClient
+    .from(QCM_QUESTIONS_TABLE)
+    .delete()
+    .eq("user_id", state.user.id)
+    .eq("chapitre_id", currentChapitreId)
+    .eq("is_unlocked", true);
+  if (error) {
+    console.error("clearQcmBankForChapter error:", error);
+    return { ok: false, message: "Suppression impossible." };
+  }
+  await loadChapterStats();
+  return { ok: true };
 };
 
 async function getOpenAiFileId(fileName) {
@@ -980,6 +1491,28 @@ async function getOpenAiFileId(fileName) {
     .limit(1);
   if (error) return null;
   return data && data[0] ? data[0].openai_file_id : null;
+}
+
+async function deleteOpenAiFiles(fileIds = []) {
+  if (!state.user) return;
+  const ids = Array.isArray(fileIds) ? fileIds.filter(Boolean) : [];
+  if (!ids.length) return;
+  try {
+    const { data: refreshed } = await supabaseClient.auth.refreshSession();
+    const accessToken = refreshed.session?.access_token;
+    if (!accessToken) return;
+    for (const id of ids) {
+      try {
+        await fetch(`${QCM_FUNCTION_URL}?file_id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "apikey": SUPABASE_ANON
+          }
+        });
+      } catch {}
+    }
+  } catch {}
 }
 
 async function saveOpenAiFileId(fileName, fileId) {
@@ -1023,10 +1556,18 @@ async function listUserPdfs() {
 
   const { data: indexRows } = await supabaseClient
     .from(PDF_INDEX_TABLE)
-    .select("file_name, chapitre_id, openai_file_id")
+    .select("file_name, chapitre_id, openai_file_id, page_count, last_page_processed")
     .eq("user_id", state.user.id);
   if (token !== pdfRenderToken) return;
   const indexMap = new Map((indexRows || []).map(r => [r.file_name, r]));
+  pdfProgressMap = new Map();
+  (indexRows || []).forEach(row => {
+    if (!row?.file_name) return;
+    pdfProgressMap.set(row.file_name, {
+      pageCount: row.page_count || null,
+      lastProcessed: row.last_page_processed || 0
+    });
+  });
 
   const { data, error } = await supabaseClient
     .storage
@@ -1051,6 +1592,9 @@ async function listUserPdfs() {
   }
   if (!filteredFiles.length) {
     setCurrentPdf(null);
+  }
+  if (currentPdfName && fileNames.has(currentPdfName)) {
+    updateQcmChunkInfo(currentPdfName);
   }
 
   const renderThumb = async (url, container, localToken) => {
@@ -1113,6 +1657,7 @@ async function listUserPdfs() {
     }, { root: null, rootMargin: "200px", threshold: 0.1 });
   };
 
+  await loadPdfGenerationBlocks(filteredFiles.map(f => f.name));
   const paths = filteredFiles.map(f => `${state.user.id}/${f.name}`);
   if (paths.length) {
     const { data: signedList } = await supabaseClient
@@ -1141,20 +1686,20 @@ async function listUserPdfs() {
       });
     });
 
-      const thumb = document.createElement("div");
-      thumb.className = "pdf-thumb";
-      thumb.innerHTML = `<div class="thumb-loader"></div>`;
-      thumb.dataset.fileName = file.name;
-      thumb.addEventListener("dblclick", async (e) => {
-        e.stopPropagation();
-        setCurrentPdf(file.name);
-        const { data: urlData, error: urlErr } = await supabaseClient
-          .storage
-          .from(FILES_BUCKET)
-          .createSignedUrl(`${state.user.id}/${file.name}`, 60);
-        if (urlErr) return setMsg($("pdfMsg"), "err", "Lien temporaire impossible.");
-        openPdfInModal(urlData.signedUrl, file.name);
-      });
+    const thumb = document.createElement("div");
+    thumb.className = "pdf-thumb";
+    thumb.innerHTML = `<div class="thumb-loader"></div>`;
+    thumb.dataset.fileName = file.name;
+    thumb.addEventListener("dblclick", async (e) => {
+      e.stopPropagation();
+      setCurrentPdf(file.name);
+      const { data: urlData, error: urlErr } = await supabaseClient
+        .storage
+        .from(FILES_BUCKET)
+        .createSignedUrl(`${state.user.id}/${file.name}`, 60);
+      if (urlErr) return setMsg($("pdfMsg"), "err", "Lien temporaire impossible.");
+      openPdfInModal(urlData.signedUrl, file.name);
+    });
 
     const name = document.createElement("div");
     name.className = "pdf-name";
@@ -1187,40 +1732,44 @@ async function listUserPdfs() {
     del.textContent = "Supprimer";
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
-      confirmDeletePdf(file.name || "PDF", async () => {
-        if (currentPdfName === file.name) setCurrentPdf(null);
-        let openaiId = await getOpenAiFileId(file.name);
-        const { error: delErr } = await supabaseClient
-          .storage
-          .from(FILES_BUCKET)
-          .remove([`${state.user.id}/${file.name}`]);
-        if (delErr) return setMsg($("pdfMsg"), "err", "Suppression impossible.");
-        if (openaiId) {
-          try {
-            const { data: refreshed } = await supabaseClient.auth.refreshSession();
-            const accessToken = refreshed.session?.access_token;
-            if (!accessToken) return;
-            await fetch(`${QCM_FUNCTION_URL}?file_id=${encodeURIComponent(openaiId)}`, {
-              method: "DELETE",
-              headers: {
-                "Authorization": `Bearer ${accessToken}`,
-                "apikey": SUPABASE_ANON
-              }
-            });
-          } catch {}
-        }
-        await supabaseClient
-          .from(PDF_INDEX_TABLE)
-          .delete()
-          .eq("user_id", state.user.id)
-          .eq("file_name", file.name);
-        hideModal();
-        item.remove();
-        const pdfMsg = $("pdfMsg");
-        setMsg(pdfMsg, "ok", "PDF supprimé.");
-        setTimeout(() => clearMsg(pdfMsg), 2200);
-        await listUserPdfs();
-      });
+      if (currentPdfName === file.name) setCurrentPdf(null);
+      const ok = await confirmPdfDelete(file.name);
+      if (!ok) return;
+      let openaiId = await getOpenAiFileId(file.name);
+      const { error: delErr } = await supabaseClient
+        .storage
+        .from(FILES_BUCKET)
+        .remove([`${state.user.id}/${file.name}`]);
+      if (delErr) return setMsg($("pdfMsg"), "err", "Suppression impossible.");
+      if (openaiId) {
+        try {
+          const { data: refreshed } = await supabaseClient.auth.refreshSession();
+          const accessToken = refreshed.session?.access_token;
+          if (!accessToken) return;
+          await fetch(`${QCM_FUNCTION_URL}?file_id=${encodeURIComponent(openaiId)}`, {
+            method: "DELETE",
+            headers: {
+              "Authorization": `Bearer ${accessToken}`,
+              "apikey": SUPABASE_ANON
+            }
+          });
+        } catch {}
+      }
+      await supabaseClient
+        .from(PDF_INDEX_TABLE)
+        .delete()
+        .eq("user_id", state.user.id)
+        .eq("file_name", file.name);
+      await supabaseClient
+        .from(QCM_QUESTIONS_TABLE)
+        .delete()
+        .eq("user_id", state.user.id)
+        .eq("pdf_file_name", file.name);
+      await clearPdfGenerationBlocked(file.name);
+      hideModal();
+      item.remove();
+      setMsg($("pdfMsg"), "ok", "PDF supprimé.");
+      await listUserPdfs();
     });
 
     actions.appendChild(btn);

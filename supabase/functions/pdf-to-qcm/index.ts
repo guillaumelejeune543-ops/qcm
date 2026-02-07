@@ -15,6 +15,72 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS"
 };
 
+function buildMultiQuestionSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      type: { type: "string", const: "multi" },
+      difficulty: { type: "string", enum: ["facile", "moyen", "difficile"] },
+      question: { type: "string" },
+      options: { type: "array", minItems: 5, maxItems: 5, items: { type: "string" } },
+      answer_indices: { type: "array", minItems: 1, maxItems: 5, items: { type: "integer", minimum: 0, maximum: 4 } },
+      explanation: { type: "string" },
+      evidence: {
+        type: "array",
+        minItems: 0,
+        maxItems: 3,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            page: { type: "integer" },
+            excerpt: { type: "string" }
+          },
+          required: ["page", "excerpt"]
+        }
+      }
+    },
+    required: ["type", "difficulty", "question", "options", "answer_indices", "explanation", "evidence"]
+  };
+}
+
+function buildTfQuestionSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      type: { type: "string", const: "tf" },
+      difficulty: { type: "string", enum: ["facile", "moyen", "difficile"] },
+      question: { type: "string" },
+      items: { type: "array", minItems: 5, maxItems: 5, items: { type: "string" } },
+      truth: { type: "array", minItems: 5, maxItems: 5, items: { type: "boolean" } },
+      explanation: { type: "string" },
+      evidence: {
+        type: "array",
+        minItems: 0,
+        maxItems: 3,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            page: { type: "integer" },
+            excerpt: { type: "string" }
+          },
+          required: ["page", "excerpt"]
+        }
+      }
+    },
+    required: ["type", "difficulty", "question", "items", "truth", "explanation", "evidence"]
+  };
+}
+
+function buildQuestionSchema() {
+  return {
+    anyOf: [buildMultiQuestionSchema(), buildTfQuestionSchema()]
+  };
+}
+
 function buildSchema() {
   return {
     type: "object",
@@ -25,67 +91,26 @@ function buildSchema() {
       questions: {
         type: "array",
         minItems: 1,
-        items: {
-          anyOf: [
-            {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                type: { type: "string", const: "multi" },
-                difficulty: { type: "string", enum: ["facile", "moyen", "difficile"] },
-                question: { type: "string" },
-                options: { type: "array", minItems: 5, maxItems: 5, items: { type: "string" } },
-                answer_indices: { type: "array", minItems: 1, maxItems: 5, items: { type: "integer", minimum: 0, maximum: 4 } },
-                explanation: { type: "string" },
-                evidence: {
-                  type: "array",
-                  minItems: 0,
-                  maxItems: 3,
-                  items: {
-                    type: "object",
-                    additionalProperties: false,
-                    properties: {
-                      page: { type: "integer" },
-                      excerpt: { type: "string" }
-                    },
-                    required: ["page", "excerpt"]
-                  }
-                }
-              },
-              required: ["type", "difficulty", "question", "options", "answer_indices", "explanation", "evidence"]
-            },
-            {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                type: { type: "string", const: "tf" },
-                difficulty: { type: "string", enum: ["facile", "moyen", "difficile"] },
-                question: { type: "string" },
-                items: { type: "array", minItems: 5, maxItems: 5, items: { type: "string" } },
-                truth: { type: "array", minItems: 5, maxItems: 5, items: { type: "boolean" } },
-                explanation: { type: "string" },
-                evidence: {
-                  type: "array",
-                  minItems: 0,
-                  maxItems: 3,
-                  items: {
-                    type: "object",
-                    additionalProperties: false,
-                    properties: {
-                      page: { type: "integer" },
-                      excerpt: { type: "string" }
-                    },
-                    required: ["page", "excerpt"]
-                  }
-                }
-              },
-              required: ["type", "difficulty", "question", "items", "truth", "explanation", "evidence"]
-            }
-          ]
-        }
+        items: buildQuestionSchema()
       }
     },
     required: ["title", "note", "questions"]
+  };
+}
+
+function buildRepairSchema(count: number) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      fixed: {
+        type: "array",
+        minItems: count,
+        maxItems: count,
+        items: buildTfQuestionSchema()
+      }
+    },
+    required: ["fixed"]
   };
 }
 
@@ -137,6 +162,69 @@ function sanitizeQuestions(data: any, requestedDifficulty?: unknown) {
   return data;
 }
 
+function stripItemPrefix(value: unknown) {
+  return String(value ?? "").trim().replace(/^[A-E]\s+/i, "").trim();
+}
+
+function isTrueToken(value: unknown) {
+  const v = stripItemPrefix(value).toLowerCase();
+  return v === "vrai" || v === "true";
+}
+
+function isFalseToken(value: unknown) {
+  const v = stripItemPrefix(value).toLowerCase();
+  return v === "faux" || v === "false";
+}
+
+function isSingleTfPattern(items: unknown[]) {
+  if (!Array.isArray(items)) return false;
+  const tokens = items.map(stripItemPrefix).filter(Boolean);
+  const vfCount = tokens.filter((t) => {
+    const l = String(t).toLowerCase();
+    return l === "vrai" || l === "faux" || l === "true" || l === "false";
+  }).length;
+  const nonVfCount = tokens.length - vfCount;
+  return vfCount >= 2 && nonVfCount === 0;
+}
+
+function isLikelyBogusTfItem(value: unknown) {
+  const text = stripItemPrefix(value);
+  if (!text) return true;
+  const lower = text.toLowerCase();
+  if (/^(vrai|faux|true|false)(\s*[\).,;:!?'"]*)?$/.test(lower)) return false;
+  const badKeys = [
+    "truth",
+    "explanation",
+    "evidence",
+    "answer_indices",
+    "options",
+    "items",
+    "difficulty",
+    "question",
+    "type",
+    "note"
+  ];
+  const badPattern = new RegExp(`^(${badKeys.join("|")})(\\s*[:\\[{,]|$)`, "i");
+  return badPattern.test(text);
+}
+
+function findInvalidTfIndices(questions: any[]) {
+  const bad: number[] = [];
+  if (!Array.isArray(questions)) return bad;
+  questions.forEach((q, i) => {
+    if (!q || typeof q !== "object" || q.type !== "tf") return;
+    if (isSingleTfPattern(q.items)) return;
+    if (!Array.isArray(q.items) || q.items.length !== 5) {
+      bad.push(i);
+      return;
+    }
+    if (q.items.some((item: unknown) => isLikelyBogusTfItem(item))) {
+      bad.push(i);
+    }
+  });
+  return bad;
+}
+
 function extractOutputText(resp: any) {
   if (!resp) return "";
   if (typeof resp.output_text === "string") return resp.output_text;
@@ -151,6 +239,105 @@ function extractOutputText(resp: any) {
     });
   });
   return text;
+}
+
+async function callOpenAI(payload: unknown) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    const json = await res.json().catch(() => ({}));
+    return { res, json };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function repairInvalidTfQuestions(params: {
+  fileId: string;
+  questions: any[];
+  invalidIndices: number[];
+  existingQuestions: string[];
+}) {
+  const { fileId, questions, invalidIndices, existingQuestions } = params;
+  const invalid = invalidIndices.map((i) => questions[i]).filter(Boolean);
+  if (!invalid.length) return null;
+
+  const schema = buildRepairSchema(invalid.length);
+  const avoidBlock = existingQuestions.length
+    ? `\n\nQuestions deja existantes (ne jamais les reproduire ni paraphraser):\n${existingQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n")}`
+    : "";
+  const invalidBlock = invalid.map((q, i) => {
+    const payload = {
+      question: q.question || "",
+      difficulty: q.difficulty || "moyen",
+      items: q.items || [],
+      truth: q.truth || [],
+      explanation: q.explanation || ""
+    };
+    return `${i + 1}. ${JSON.stringify(payload)}`;
+  }).join("\n");
+
+  const instructions = `Tu dois corriger ${invalid.length} questions V/F invalides a partir du PDF.\n\nRegles obligatoires pour chaque question V/F :\n- type = "tf"\n- question = TITRE/THEME court (pas une affirmation)\n- items = 5 affirmations A->E tirees du PDF, sans mots-cles JSON\n- items ne contiennent aucun mot-cle JSON (type, truth, explanation, evidence, items, options, answer_indices, difficulty, note)\n- truth = 5 booleens correspondant aux items\n- difficulty = facile/moyen/difficile\n- explanation en francais, basee sur le PDF\n- evidence = tableau (0 a 3 extraits)\n\nRetourne EXACTEMENT ${invalid.length} questions dans "fixed", dans le meme ordre que la liste ci-dessous.\n${avoidBlock}\n\nQuestions a corriger (JSON) :\n${invalidBlock}\n\nNe renvoie que le JSON valide conforme au schema.`;
+
+  const payload = {
+    model: MODEL,
+    input: [
+      { role: "user", content: [{ type: "input_file", file_id: fileId }, { type: "input_text", text: instructions }] }
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "qcm_fix",
+        strict: true,
+        schema
+      }
+    },
+    temperature: 0.2
+  };
+
+  let openaiRes: Response;
+  let openaiJson: any;
+  try {
+    const out = await callOpenAI(payload);
+    openaiRes = out.res;
+    openaiJson = out.json;
+  } catch (err) {
+    console.error("[pdf-to-qcm] repair OpenAI fetch error", String(err));
+    return null;
+  }
+
+  if (!openaiRes.ok) {
+    console.error("[pdf-to-qcm] repair OpenAI error", openaiRes.status, openaiJson);
+    return null;
+  }
+
+  const outputText = extractOutputText(openaiJson);
+  if (!outputText) {
+    console.error("[pdf-to-qcm] repair empty output", openaiJson);
+    return null;
+  }
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(outputText);
+  } catch {
+    console.error("[pdf-to-qcm] repair JSON parse error", outputText.slice(0, 500));
+    return null;
+  }
+
+  const fixed = Array.isArray(parsed?.fixed) ? parsed.fixed : [];
+  if (fixed.length !== invalid.length) return null;
+  const sanitized = sanitizeQuestions({ questions: fixed }, null);
+  return Array.isArray(sanitized?.questions) ? sanitized.questions : fixed;
 }
 
 async function uploadPdfToOpenAI(pdfBuffer: ArrayBuffer, filename: string) {
@@ -331,7 +518,7 @@ serve(async (req) => {
     const avoidBlock = existingList.length
       ? `\n\nQuestions deja existantes (ne jamais les reproduire ni paraphraser):\n${existingList.map((q, i) => `${i + 1}. ${q}`).join("\n")}`
       : "";
-    const instructions = `Tu es un enseignant LAS. Genere un QCM STRICTEMENT base sur le PDF fourni.\n\nContraintes:\n- Langue: francais\n- Aucun contenu invente\n- 80% questions type \"multi\" et 20% type \"tf\"\n- Toujours 5 propositions/items A->E\n- options/items commencent par \"A ", \"B ", \"C ", \"D ", \"E \"\n- evidence doit toujours etre un tableau (peut etre vide) avec 0 a 3 extraits courts\n- chaque question doit avoir une difficulty exactement parmi: facile, moyen, difficile (minuscules, sans accents)\n- determine toi-meme la difficulty de chaque question\n- les questions doivent etre nouvelles et differentes des questions deja existantes\n- le champ \"note\" est obligatoire : si tout est OK, mets une chaine vide \"\" ; si tu ne peux pas generer ${questionCount || "le nombre demande"} questions nouvelles, explique pourquoi dans \"note\"\n${countLine}\n${rangeLine}\n${hint}${avoidBlock}\n\nNe renvoie que le JSON valide conforme au schema.`;
+    const instructions = `Tu es un enseignant LAS. Genere un QCM STRICTEMENT base sur le PDF fourni.\n\nContraintes:\n- Langue: francais\n- Aucun contenu invente\n- 80% questions type \"multi\" et 20% type \"tf\"\n- Toujours 5 propositions/items A->E\n- options/items commencent par \"A ", \"B ", \"C ", \"D ", \"E \"\n- Pour les questions \"tf\" : \"question\" est un TITRE/THEME court (pas une affirmation), les items sont 5 affirmations A->E\n- Ne jamais inclure les mots-cles de structure JSON dans items/options (type, truth, explanation, evidence, items, options, answer_indices, difficulty, note)\n- evidence doit toujours etre un tableau (peut etre vide) avec 0 a 3 extraits courts\n- chaque question doit avoir une difficulty exactement parmi: facile, moyen, difficile (minuscules, sans accents)\n- determine toi-meme la difficulty de chaque question\n- les questions doivent etre nouvelles et differentes des questions deja existantes\n- le champ \"note\" est obligatoire : si tout est OK, mets une chaine vide \"\" ; si tu ne peux pas generer ${questionCount || "le nombre demande"} questions nouvelles, explique pourquoi dans \"note\"\n${countLine}\n${rangeLine}\n${hint}${avoidBlock}\n\nNe renvoie que le JSON valide conforme au schema.`;
 
   const payload = {
     model: MODEL,
@@ -352,19 +539,11 @@ serve(async (req) => {
 
     console.log("[pdf-to-qcm] calling OpenAI...");
     let openaiRes: Response;
+    let openaiJson: any;
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
-      openaiRes = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
+      const out = await callOpenAI(payload);
+      openaiRes = out.res;
+      openaiJson = out.json;
     } catch (err) {
       console.error("[pdf-to-qcm] OpenAI fetch error", String(err));
       return new Response(JSON.stringify({ error: "OpenAI fetch error", details: String(err) }), {
@@ -373,11 +552,10 @@ serve(async (req) => {
       });
     }
 
-    const openaiJson = await openaiRes.json().catch(() => ({}));
     if (!openaiRes.ok) {
       console.error("[pdf-to-qcm] OpenAI error", openaiRes.status, openaiJson);
       return new Response(JSON.stringify({ error: "OpenAI error", details: openaiJson }), {
-        status: 500,
+        status: openaiRes.status === 429 ? 429 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -405,7 +583,26 @@ serve(async (req) => {
     if (parsedJson && typeof parsedJson === "object" && (parsedJson as any).note === undefined) {
       (parsedJson as any).note = "";
     }
-    const sanitized = sanitizeQuestions(parsedJson, null);
+    let sanitized = sanitizeQuestions(parsedJson, null);
+    if (sanitized && Array.isArray((sanitized as any).questions)) {
+      const invalidTf = findInvalidTfIndices((sanitized as any).questions);
+      if (invalidTf.length) {
+        console.warn("[pdf-to-qcm] invalid TF items detected, attempting repair", invalidTf);
+        const fixed = await repairInvalidTfQuestions({
+          fileId,
+          questions: (sanitized as any).questions,
+          invalidIndices: invalidTf,
+          existingQuestions: existingList
+        });
+        if (fixed && fixed.length === invalidTf.length) {
+          invalidTf.forEach((idx, i) => {
+            (sanitized as any).questions[idx] = fixed[i];
+          });
+        } else {
+          console.warn("[pdf-to-qcm] repair failed, returning original questions");
+        }
+      }
+    }
     return new Response(JSON.stringify({ ok: true, data: sanitized, openai_file_id: fileId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });

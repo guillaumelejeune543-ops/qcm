@@ -1,0 +1,1950 @@
+{
+  "pdf": "test.pdf",
+  "pages": 13,
+  "body_size": 11.0,
+  "title_threshold": 13.5,
+  "stats": {
+    "lines_total": 549,
+    "lines_kept": 459,
+    "lines_dropped_page_num": 0,
+    "lines_dropped_repeated": 37,
+    "lines_dropped_footer_short": 19,
+    "titles_found": 34,
+    "images_total": 20,
+    "images_unique": 9,
+    "o_normalized_count": 35,
+    "lonely_bullets_merged_count": 75,
+    "label_splits_count": 4,
+    "logos_flagged_count": 1,
+    "bullets_merged": 75,
+    "wraps_merged": 145,
+    "qcm_sections": 1,
+    "qcm_blocks": 28
+  },
+  "filters": {
+    "header_band": 0.1,
+    "footer_band": 0.12,
+    "max_title_chars": 90,
+    "title_merge_gap": 8.8,
+    "sample_pages": 8,
+    "merge_bullets": true,
+    "merge_wrap": true,
+    "qcm_mode": "separate",
+    "image_dedup": "xref",
+    "repeat_ratio": 0.6,
+    "repeat_min_pages": 3,
+    "repeat_threshold": 8,
+    "repeated_headers_count": 2,
+    "repeated_footers_count": 1
+  },
+  "sections": [
+    {
+      "title": "A. Addictologie",
+      "page_start": 2,
+      "blocks": [
+        {
+          "page": 2,
+          "text": "Définition globale",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Définition globale"
+        },
+        {
+          "page": 2,
+          "text": "• Spécialité médicale qui s’intéresse aux conduites addictives en lien avec :",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Spécialité médicale qui s’intéresse aux conduites addictives en lien avec :"
+        },
+        {
+          "page": 2,
+          "text": "  - La consommation d’une(des) substance(s) psychoactives",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "La consommation d’une(des) substance(s) psychoactives"
+        },
+        {
+          "page": 2,
+          "text": "  - Un(des) comportements comme le jeu ou certains troubles du comportement alimentaire (TCA) tel que la boulimie (InCa)",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Un(des) comportements comme le jeu ou certains troubles du comportement alimentaire (TCA) tel que la boulimie (InCa)"
+        },
+        {
+          "page": 2,
+          "text": "• Naissance en France dans les dernières années du vingtième siècle",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Naissance en France dans les dernières années du vingtième siècle"
+        },
+        {
+          "page": 2,
+          "text": "• Objectif : Rapprochements entre les professionnels intervenant dans ce domaine",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Objectif : Rapprochements entre les professionnels intervenant dans ce domaine"
+        },
+        {
+          "page": 2,
+          "text": "Domaines importants",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Domaines importants"
+        },
+        {
+          "page": 2,
+          "text": "• Prévention, repérage des consommations à risque",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Prévention, repérage des consommations à risque"
+        },
+        {
+          "page": 2,
+          "text": "• Vulnérabilités, fonctionnement neurobiologique",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Vulnérabilités, fonctionnement neurobiologique"
+        },
+        {
+          "page": 2,
+          "text": "• Conséquences :",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Conséquences :"
+        },
+        {
+          "page": 2,
+          "text": "  - En lien avec les consommations de substance psychoactive",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "En lien avec les consommations de substance psychoactive"
+        },
+        {
+          "page": 2,
+          "text": "  - En lien avec les comportements (exemple : le jeu pathologique)",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "En lien avec les comportements (exemple : le jeu pathologique)"
+        },
+        {
+          "page": 2,
+          "text": "• Santé publique",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Santé publique"
+        },
+        {
+          "page": 2,
+          "text": "Modèle tri-varié des addictions",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Modèle tri-varié des addictions"
+        },
+        {
+          "page": 2,
+          "text": "• Le développement des conduites addictives est le fruit de l’interaction entre :",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Le développement des conduites addictives est le fruit de l’interaction entre :"
+        },
+        {
+          "page": 2,
+          "text": "  - Un individu et ce qui le constitue",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Un individu et ce qui le constitue"
+        },
+        {
+          "page": 2,
+          "text": "  - Une substance psychoactive ou un comportement (exemple : de jeu)",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Une substance psychoactive ou un comportement (exemple : de jeu)"
+        },
+        {
+          "page": 2,
+          "text": "  - Dans un environnement donné",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Dans un environnement donné"
+        },
+        {
+          "page": 2,
+          "text": " Cette triple rencontre est susceptible d’évoluer vers le développement des conduites addictives et ainsi que des conséquences négatives en lien avec ces conduites addictives.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": " Cette triple rencontre est susceptible d’évoluer vers le développement des conduites addictives et ainsi que des conséquences négatives en lien avec ces conduites addictives."
+        },
+        {
+          "page": 2,
+          "text": "Informations déjà tombées à l’examens / importantes du cours :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Informations déjà tombées à l’examens / importantes du cours :"
+        },
+        {
+          "page": 2,
+          "text": "- Définition addictologie",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Définition addictologie"
+        },
+        {
+          "page": 2,
+          "text": "- Modèle tri-varié",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Modèle tri-varié"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "A. Estimation du nombre de consommateurs de substances psychoactives et joueurs, en France",
+      "page_start": 2,
+      "blocks": [
+        {
+          "page": 2,
+          "text": "Moyen d’aborder L’un des moyens d'aborder l'épidémie, est de s'intéresser à l'estimation du nombre de consommateurs de substances psychoactives en France, ainsi qu'à l'estimation du nombre de joueurs en France. Les données, sont issus des estimations de l'Observatoire français des drogues et des tendances addictives. Nous voyons ici l'estimation du nombre de consommateurs de substances psychoactives parmi les 11-75 ans et l'estimation du nombre de joueurs parmi les 18-75 ans en France. Ces données étant datées de 2022.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Moyen d’aborder L’un des moyens d'aborder l'épidémie, est de s'intéresser à l'estimation du nombre de consommateurs de substances psychoactives en France, ainsi qu'à l'estimation du nombre de joueurs en France. Les données, sont issus des estimations de l'Observatoire français des drogues et des tendances addictives. Nous voyons ici l'estimation du nombre de consommateurs de substances psychoactives parmi les 11-75 ans et l'estimation du nombre de joueurs parmi les 18-75 ans en France. Ces données étant datées de 2022."
+        },
+        {
+          "page": 3,
+          "text": "Alcool",
+          "kind": "title",
+          "bullet_level": null,
+          "normalized_text": "Alcool"
+        },
+        {
+          "page": 3,
+          "text": "En France, il y a 47 millions d'expérimentateurs , une expérimentation d'alcool étant l'usage au moins une fois, au cours de sa vie d'alcool . Parmi ces 47 millions d'expérimentateurs :",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "En France, il y a 47 millions d'expérimentateurs , une expérimentation d'alcool étant l'usage au moins une fois, au cours de sa vie d'alcool . Parmi ces 47 millions d'expérimentateurs :"
+        },
+        {
+          "page": 3,
+          "text": "  - Il existe 43 millions d'usagers d'alcool dans l'année qui sont dénombrés, dont :",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Il existe 43 millions d'usagers d'alcool dans l'année qui sont dénombrés, dont :"
+        },
+        {
+          "page": 3,
+          "text": "  - 9 millions d'usagers réguliers",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "9 millions d'usagers réguliers"
+        },
+        {
+          "page": 3,
+          "text": "  - 5 millions d’usagers quotidiens",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "5 millions d’usagers quotidiens"
+        },
+        {
+          "page": 3,
+          "text": "Tabac",
+          "kind": "title",
+          "bullet_level": null,
+          "normalized_text": "Tabac"
+        },
+        {
+          "page": 3,
+          "text": "En France, il y a 37 millions d'expérimentateurs sont dénombrés :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "En France, il y a 37 millions d'expérimentateurs sont dénombrés :"
+        },
+        {
+          "page": 3,
+          "text": "  - Dont 15 millions d'usagers dans l'année",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Dont 15 millions d'usagers dans l'année"
+        },
+        {
+          "page": 3,
+          "text": "  - Dont 12 millions d'usagers quotidiens",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Dont 12 millions d'usagers quotidiens"
+        },
+        {
+          "page": 3,
+          "text": "Cannabis",
+          "kind": "title",
+          "bullet_level": null,
+          "normalized_text": "Cannabis"
+        },
+        {
+          "page": 3,
+          "text": "En France, il y a 18 millions d'expérimentateurs sont dénombrés :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "En France, il y a 18 millions d'expérimentateurs sont dénombrés :"
+        },
+        {
+          "page": 3,
+          "text": "  - Dont 5 millions d’usagers dans l'année",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Dont 5 millions d’usagers dans l'année"
+        },
+        {
+          "page": 3,
+          "text": "  - Dont 1,3 millions d'usagers réguliers",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Dont 1,3 millions d'usagers réguliers"
+        },
+        {
+          "page": 3,
+          "text": "  - Et puis 850 000 usagers quotidiens",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Et puis 850 000 usagers quotidiens"
+        },
+        {
+          "page": 3,
+          "text": "Il existe des données similaires dans le cadre des consommations de cocaïne, de MDMA et d'Ectasie et d'héroïne.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Il existe des données similaires dans le cadre des consommations de cocaïne, de MDMA et d'Ectasie et d'héroïne."
+        },
+        {
+          "page": 3,
+          "text": "Jeux d’argent",
+          "kind": "title",
+          "bullet_level": null,
+          "normalized_text": "Jeux d’argent"
+        },
+        {
+          "page": 3,
+          "text": "En France, il y a 21 millions de joueurs dans l'année :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "En France, il y a 21 millions de joueurs dans l'année :"
+        },
+        {
+          "page": 3,
+          "text": "  - Dont 450 000 joueurs quotidiens",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Dont 450 000 joueurs quotidiens"
+        },
+        {
+          "page": 3,
+          "text": "Informations déjà tombées à l’examens / importantes du cours :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Informations déjà tombées à l’examens / importantes du cours :"
+        },
+        {
+          "page": 3,
+          "text": "- Le nombre d’expérimentateurs par substances psychoactives et joueurs ++++ (revu dans les autres cours)",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Le nombre d’expérimentateurs par substances psychoactives et joueurs ++++ (revu dans les autres cours)"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "B. Types de jeux d’argent et de hasard pratiqués dans l’année par sexe en 2017 parmi les adolescents (%)",
+      "page_start": 4,
+      "blocks": [
+        {
+          "page": 4,
+          "text": "Au moins un jeu d’argent et de hasard dans l’année En 2017, parmi les adolescents, c'est 38,9% des adolescent ont eu recours au moins une fois à un jeu d'argent et de hasard dans l'année (au moment de l'enquête, en 2007) : 47,1 % des garçon et de 30,5% des filles.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Au moins un jeu d’argent et de hasard dans l’année En 2017, parmi les adolescents, c'est 38,9% des adolescent ont eu recours au moins une fois à un jeu d'argent et de hasard dans l'année (au moment de l'enquête, en 2007) : 47,1 % des garçon et de 30,5% des filles."
+        },
+        {
+          "page": 4,
+          "text": "Jeux de tirage ou de grattage",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Jeux de tirage ou de grattage"
+        },
+        {
+          "page": 4,
+          "text": "• Adolescents : 30,7 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Adolescents : 30,7 %"
+        },
+        {
+          "page": 4,
+          "text": "• Garçons : 32,6 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Garçons : 32,6 %"
+        },
+        {
+          "page": 4,
+          "text": "• Filles : 28,7 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Filles : 28,7 %"
+        },
+        {
+          "page": 4,
+          "text": "Pronostic et de paris sportifs",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Pronostic et de paris sportifs"
+        },
+        {
+          "page": 4,
+          "text": "• Adolescents : 17,2 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Adolescents : 17,2 %"
+        },
+        {
+          "page": 4,
+          "text": "• Garçons : 31,1 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Garçons : 31,1 %"
+        },
+        {
+          "page": 4,
+          "text": "• Filles : 4,1 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Filles : 4,1 %"
+        },
+        {
+          "page": 4,
+          "text": "Jeux de casino",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Jeux de casino"
+        },
+        {
+          "page": 4,
+          "text": "• Adolescent : 3,6 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Adolescent : 3,6 %"
+        },
+        {
+          "page": 4,
+          "text": "• Garçons : 5,2 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Garçons : 5,2 %"
+        },
+        {
+          "page": 4,
+          "text": "• Filles : 2,0 %",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Filles : 2,0 %"
+        },
+        {
+          "page": 4,
+          "text": "Conclusion",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Conclusion"
+        },
+        {
+          "page": 4,
+          "text": "Ce que nous voyons ici, c'est la présence d'un sexe-ratio qui est plus en faveur des garçons, notamment concernant les jeux à des pronostics et pari sportifs.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Ce que nous voyons ici, c'est la présence d'un sexe-ratio qui est plus en faveur des garçons, notamment concernant les jeux à des pronostics et pari sportifs."
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "C. Types de jeux d’argent et de hasard pratiqués dans l’année par sexe en 2019 parmi les adultes (%)",
+      "page_start": 4,
+      "blocks": [
+        {
+          "page": 4,
+          "text": "Graphique",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Graphique"
+        },
+        {
+          "page": 4,
+          "text": "Nous voyons que 47,2% des adultes en 2019 avaient joué au moins une fois un jeu d’argent et de hasard (JAH) dans l'année, 50,4% des hommes et 44,2% des femmes.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Nous voyons que 47,2% des adultes en 2019 avaient joué au moins une fois un jeu d’argent et de hasard (JAH) dans l'année, 50,4% des hommes et 44,2% des femmes."
+        },
+        {
+          "page": 4,
+          "text": "Si l'on détaille les différents jeux, 30,7% des adultes allaient jouer à des jeux de tirage, 26,9% à des jeux de Grattage, 3,7% à des paris hippiques, 5,2% à des Paris sportifs, 1,4% au poker,",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Si l'on détaille les différents jeux, 30,7% des adultes allaient jouer à des jeux de tirage, 26,9% à des jeux de Grattage, 3,7% à des paris hippiques, 5,2% à des Paris sportifs, 1,4% au poker,"
+        },
+        {
+          "page": 4,
+          "text": "4,6%, à des machines à sous.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "4,6%, à des machines à sous."
+        },
+        {
+          "page": 4,
+          "text": "Et 2% environ à d'autres jeux de casino dans l'année.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Et 2% environ à d'autres jeux de casino dans l'année."
+        },
+        {
+          "page": 5,
+          "text": "Conclusion",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Conclusion"
+        },
+        {
+          "page": 5,
+          "text": "Ce que l'on peut voir de manière générale, c'est qu’il existe un peu plus d'hommes qui ont joué au moins une fois à JAH dans l'année en population adulte",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Ce que l'on peut voir de manière générale, c'est qu’il existe un peu plus d'hommes qui ont joué au moins une fois à JAH dans l'année en population adulte"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "D. Rang de la France en Europe pour les 3 produits les plus consommés en 2019",
+      "page_start": 6,
+      "blocks": [
+        {
+          "page": 6,
+          "text": "Les 3 produits les plus consommés en France",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Les 3 produits les plus consommés en France"
+        },
+        {
+          "page": 6,
+          "text": "• Alcool",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Alcool"
+        },
+        {
+          "page": 6,
+          "text": "• Tabac",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Tabac"
+        },
+        {
+          "page": 6,
+          "text": "• Cannabis",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Cannabis"
+        },
+        {
+          "page": 6,
+          "text": "Rang de la France en",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Rang de la France en"
+        },
+        {
+          "page": 6,
+          "text": "Europe pour les 3 produits les plus consommés en 201",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Europe pour les 3 produits les plus consommés en 201"
+        },
+        {
+          "page": 6,
+          "text": "Parmi les 15-75 ans : 25 e",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Parmi les 15-75 ans : 25 e"
+        },
+        {
+          "page": 6,
+          "text": "• Cannabis : 2 e",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Cannabis : 2 e"
+        },
+        {
+          "page": 6,
+          "text": "• Alcool : 4 e",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Alcool : 4 e"
+        },
+        {
+          "page": 6,
+          "text": "• Tabac : 5 e",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Tabac : 5 e"
+        },
+        {
+          "page": 6,
+          "text": "Parmi les jeunes de 16 ans : 34 e",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Parmi les jeunes de 16 ans : 34 e"
+        },
+        {
+          "page": 6,
+          "text": "• Cannabis : 2 e",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Cannabis : 2 e"
+        },
+        {
+          "page": 6,
+          "text": "• Alcool : 14 e",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Alcool : 14 e"
+        },
+        {
+          "page": 6,
+          "text": "• Tabac : 13 e",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Tabac : 13 e"
+        },
+        {
+          "page": 6,
+          "text": "Décès attribuables aux usages de tabac et d’alcool en 2015",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Décès attribuables aux usages de tabac et d’alcool en 2015"
+        },
+        {
+          "page": 6,
+          "text": "Le tabac est associé à un nombre important de décès attribuables à son usage.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Le tabac est associé à un nombre important de décès attribuables à son usage."
+        },
+        {
+          "page": 6,
+          "text": "• Tabac : 75 320 décès",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Tabac : 75 320 décès"
+        },
+        {
+          "page": 6,
+          "text": "• Alcool : 41 000 décès",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Alcool : 41 000 décès"
+        },
+        {
+          "page": 6,
+          "text": "Décès direct attribuables aux substances illicites et médicament opioïde en",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Décès direct attribuables aux substances illicites et médicament opioïde en"
+        },
+        {
+          "page": 6,
+          "text": "2019",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "2019"
+        },
+        {
+          "page": 6,
+          "text": "• 503 décès sont liés à l'usage abusif de substances illicites et médicament",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "503 décès sont liés à l'usage abusif de substances illicites et médicament"
+        },
+        {
+          "page": 6,
+          "text": "• 141 décès sont liés à l'usage d'antalgique opioïde",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "141 décès sont liés à l'usage d'antalgique opioïde"
+        },
+        {
+          "page": 6,
+          "text": "Conclusion",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Conclusion"
+        },
+        {
+          "page": 6,
+          "text": "Nous pouvons voir que la consommation de substances psychoactives en France est un problème majeur de santé publique , en ce qui concerne les comportements visàvis de l'usage de ces substances psychoactives.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Nous pouvons voir que la consommation de substances psychoactives en France est un problème majeur de santé publique , en ce qui concerne les comportements visàvis de l'usage de ces substances psychoactives."
+        },
+        {
+          "page": 6,
+          "text": "Informations déjà tombées à l’examens / importantes du cours :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Informations déjà tombées à l’examens / importantes du cours :"
+        },
+        {
+          "page": 6,
+          "text": "Retenir les 3 produits consommés avec leurs rangs en France +++",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Retenir les 3 produits consommés avec leurs rangs en France +++"
+        },
+        {
+          "page": 6,
+          "text": "Nombre de décès tabac et alcool",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Nombre de décès tabac et alcool"
+        },
+        {
+          "page": 6,
+          "text": "Décès direct aux substances illicites",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Décès direct aux substances illicites"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "A. Substances psychoactives",
+      "page_start": 7,
+      "blocks": [
+        {
+          "page": 7,
+          "text": "3 grands types de comportements / usages",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "3 grands types de comportements / usages"
+        },
+        {
+          "page": 7,
+          "text": "Non-usage",
+          "kind": "title",
+          "bullet_level": null,
+          "normalized_text": "Non-usage"
+        },
+        {
+          "page": 7,
+          "text": "Absence de consommation de substance psychoactive :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Absence de consommation de substance psychoactive :"
+        },
+        {
+          "page": 7,
+          "text": "• Primaire : sujets qui n’ont jamais consommé",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Primaire : sujets qui n’ont jamais consommé"
+        },
+        {
+          "page": 7,
+          "text": "• Secondaire : sujets qui ont déjà consommé puis qui ont arrêté",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Secondaire : sujets qui ont déjà consommé puis qui ont arrêté"
+        },
+        {
+          "page": 7,
+          "text": "Usage à faible risque",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Usage à faible risque"
+        },
+        {
+          "page": 7,
+          "text": "Consommation dite usuelle d'alcool, sans qu’elle ne présente le caractère pathologique.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Consommation dite usuelle d'alcool, sans qu’elle ne présente le caractère pathologique."
+        },
+        {
+          "page": 7,
+          "text": "• Consommation est modulable en fonction de l'environnement dans lequel le sujet se situe, des besoins ou de ses envies, des effets négatifs qu'il peut ressentir, ainsi que de la disponibilité de la substance",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Consommation est modulable en fonction de l'environnement dans lequel le sujet se situe, des besoins ou de ses envies, des effets négatifs qu'il peut ressentir, ainsi que de la disponibilité de la substance"
+        },
+        {
+          "page": 7,
+          "text": "ATTENTION : La notion d'usage à faible risque n'est définie que pour l'alcool.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "ATTENTION : La notion d'usage à faible risque n'est définie que pour l'alcool."
+        },
+        {
+          "page": 7,
+          "text": "Mésusage",
+          "kind": "title",
+          "bullet_level": null,
+          "normalized_text": "Mésusage"
+        },
+        {
+          "page": 7,
+          "text": "Définition : toute conduite de consommation d'une ou de plusieurs substances psychoactives caractérisées par l'existence de risques et/ou de dommages et/ou de dépendance en lien avec la consommation de ces substances psychoactives.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Définition : toute conduite de consommation d'une ou de plusieurs substances psychoactives caractérisées par l'existence de risques et/ou de dommages et/ou de dépendance en lien avec la consommation de ces substances psychoactives."
+        },
+        {
+          "page": 7,
+          "text": "Pour toutes les substances psychoactives à l'exception de l'alcool et des médicaments , tout usage correspond à un mésusage .",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Pour toutes les substances psychoactives à l'exception de l'alcool et des médicaments , tout usage correspond à un mésusage ."
+        },
+        {
+          "page": 7,
+          "text": "Ainsi :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Ainsi :"
+        },
+        {
+          "page": 7,
+          "text": "• Un sujet fumeur de tabac, présente d’emblée un mésusage de tabac",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Un sujet fumeur de tabac, présente d’emblée un mésusage de tabac"
+        },
+        {
+          "page": 7,
+          "text": "• Un sujet qui est consommateur de cannabis, présente d'emblée un mésusage de cannabis.",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Un sujet qui est consommateur de cannabis, présente d'emblée un mésusage de cannabis."
+        },
+        {
+          "page": 7,
+          "text": "Informations déjà tombées à l’examens / informations importantes du cours :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Informations déjà tombées à l’examens / informations importantes du cours :"
+        },
+        {
+          "page": 7,
+          "text": "- 3 grands types de comportements / usages ++++",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "3 grands types de comportements / usages ++++"
+        },
+        {
+          "page": 7,
+          "text": "- Définition mésusage",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Définition mésusage"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "B. Alcool : usage à faible risque",
+      "page_start": 7,
+      "blocks": [
+        {
+          "page": 7,
+          "text": "Définition",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Définition"
+        },
+        {
+          "page": 7,
+          "text": "• Risques au cours de la vie augmentent avec la quantité consommée",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Risques au cours de la vie augmentent avec la quantité consommée"
+        },
+        {
+          "page": 7,
+          "text": "• Ne pas consommer plus de 10 verres standards par semaine et pas plus de 2 verres standards par jour",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Ne pas consommer plus de 10 verres standards par semaine et pas plus de 2 verres standards par jour"
+        },
+        {
+          "page": 7,
+          "text": "• Avoir des jours dans la semaine sans consommation",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Avoir des jours dans la semaine sans consommation"
+        },
+        {
+          "page": 7,
+          "text": "Verre-standard",
+          "kind": "title",
+          "bullet_level": null,
+          "normalized_text": "Verre-standard"
+        },
+        {
+          "page": 8,
+          "text": "Verre-standard = verre qui est habituellement distribuer qui est habituellement servi dans les bars.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Verre-standard = verre qui est habituellement distribuer qui est habituellement servi dans les bars."
+        },
+        {
+          "page": 8,
+          "text": "1 verre standard contient 10 g d'alcool pur correspondant ainsi à :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "1 verre standard contient 10 g d'alcool pur correspondant ainsi à :"
+        },
+        {
+          "page": 8,
+          "text": "  - Un ballon de vin à 12° de 10 cl",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Un ballon de vin à 12° de 10 cl"
+        },
+        {
+          "page": 8,
+          "text": "  - Un demi de bière à 5° de 25 cl",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Un demi de bière à 5° de 25 cl"
+        },
+        {
+          "page": 8,
+          "text": "  - Un verre de whisky à 40° à 3 cl",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Un verre de whisky à 40° à 3 cl"
+        },
+        {
+          "page": 8,
+          "text": "  - Un verre de pastis à 45° à 3 cl",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Un verre de pastis à 45° à 3 cl"
+        },
+        {
+          "page": 8,
+          "text": "  - Une coupe de champagne à 12° de 10 cl",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Une coupe de champagne à 12° de 10 cl"
+        },
+        {
+          "page": 8,
+          "text": "  - Tous contenant autant de gramme d’alcool les uns que les autres.",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Tous contenant autant de gramme d’alcool les uns que les autres."
+        },
+        {
+          "page": 8,
+          "text": "Informations déjà tombées à l’examens / informations importantes du cours :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Informations déjà tombées à l’examens / informations importantes du cours :"
+        },
+        {
+          "page": 8,
+          "text": "- Retenir qu’un verre standard contient 10g alcool pur",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Retenir qu’un verre standard contient 10g alcool pur"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "C. Mésusage",
+      "page_start": 8,
+      "blocks": [
+        {
+          "page": 8,
+          "text": "3 stades",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "3 stades"
+        },
+        {
+          "page": 8,
+          "text": "• Usage à risque",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Usage à risque"
+        },
+        {
+          "page": 8,
+          "text": "• Usage nocif",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Usage nocif"
+        },
+        {
+          "page": 8,
+          "text": "• Dépendance",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Dépendance"
+        },
+        {
+          "page": 8,
+          "text": "Usage à risque (ce n’est pas un diagnostic médical)",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Usage à risque (ce n’est pas un diagnostic médical)"
+        },
+        {
+          "page": 8,
+          "text": "• État « pré-morbide », facteur de risque",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "État « pré-morbide », facteur de risque"
+        },
+        {
+          "page": 8,
+          "text": "  - Pourrait faire évoluer le sujet vers une consommation nocives ou une dépendance",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Pourrait faire évoluer le sujet vers une consommation nocives ou une dépendance"
+        },
+        {
+          "page": 8,
+          "text": "• Niveaux de consommation qui exposent à des risques des complications",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Niveaux de consommation qui exposent à des risques des complications"
+        },
+        {
+          "page": 8,
+          "text": "  - Soit secondaire à la consommation aiguë",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Soit secondaire à la consommation aiguë"
+        },
+        {
+          "page": 8,
+          "text": "Exemple : Accidents ou violence avec alcool, syndrome coronarien aigu à la suite d’une crise de cocaïne",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Exemple : Accidents ou violence avec alcool, syndrome coronarien aigu à la suite d’une crise de cocaïne"
+        },
+        {
+          "page": 8,
+          "text": "  - Soit secondaires à la consommation chronique",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Soit secondaires à la consommation chronique"
+        },
+        {
+          "page": 8,
+          "text": "Exemple : Complication médicales, psychologiques, sociales, passage à la dépendance",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Exemple : Complication médicales, psychologiques, sociales, passage à la dépendance"
+        },
+        {
+          "page": 8,
+          "text": "• Mais ces complications ne sont pas encore présentes (et ne le seront peut-être jamais)",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Mais ces complications ne sont pas encore présentes (et ne le seront peut-être jamais)"
+        },
+        {
+          "page": 8,
+          "text": "• Stade important à repérer pour mettre en place des stratégies de prévention adaptées",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Stade important à repérer pour mettre en place des stratégies de prévention adaptées"
+        },
+        {
+          "page": 8,
+          "text": "Usage nocif",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Usage nocif"
+        },
+        {
+          "page": 8,
+          "text": "• Diagnostics médicaux qui sont effectués en addictologie.",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Diagnostics médicaux qui sont effectués en addictologie."
+        },
+        {
+          "page": 8,
+          "text": "• Consommation répétée induisant :",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Consommation répétée induisant :"
+        },
+        {
+          "page": 8,
+          "text": "  - Des dommages médicaux (psychiatriques et autres)",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Des dommages médicaux (psychiatriques et autres)"
+        },
+        {
+          "page": 8,
+          "text": "  - Des dommages sociaux pour le sujet lui-même ou pour son environnement proche ou éloigné",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Des dommages sociaux pour le sujet lui-même ou pour son environnement proche ou éloigné"
+        },
+        {
+          "page": 8,
+          "text": "  - Sans atteindre les critères de la dépendance",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Sans atteindre les critères de la dépendance"
+        },
+        {
+          "page": 8,
+          "text": "  - Dont le caractère pathologique est défini à la fois par la répétition de la consommation et le constat des dommage induits Pour le résumer, dès lors qu'il existe des dommages induits par une consommation de substances psychoactives, le sujet présente au minimum un usage notif de cette substance psychoactive.",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Dont le caractère pathologique est défini à la fois par la répétition de la consommation et le constat des dommage induits Pour le résumer, dès lors qu'il existe des dommages induits par une consommation de substances psychoactives, le sujet présente au minimum un usage notif de cette substance psychoactive."
+        },
+        {
+          "page": 8,
+          "text": "Ce qui sera ensuite important d'évaluer, c'est si ce sujet, en plus de présenter un usage nocif/ou au-delà de présenter un usage massif, présente ou pas une dépendance ou un syndrome de dépendance.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Ce qui sera ensuite important d'évaluer, c'est si ce sujet, en plus de présenter un usage nocif/ou au-delà de présenter un usage massif, présente ou pas une dépendance ou un syndrome de dépendance."
+        },
+        {
+          "page": 9,
+          "text": "Dépendance",
+          "kind": "title",
+          "bullet_level": null,
+          "normalized_text": "Dépendance"
+        },
+        {
+          "page": 9,
+          "text": "• Diagnostics médicaux qui sont effectués en addictologie.",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Diagnostics médicaux qui sont effectués en addictologie."
+        },
+        {
+          "page": 9,
+          "text": "• Le syndrome de dépendance consiste en un ensemble de phénomènes comportementaux, cognitifs et physiologiques dans lesquels l'usage d'une substance psychoactive spécifique ou d'une catégorie de substances entraîne un désinvestissement progressif vis-à-vis des autres activités.",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Le syndrome de dépendance consiste en un ensemble de phénomènes comportementaux, cognitifs et physiologiques dans lesquels l'usage d'une substance psychoactive spécifique ou d'une catégorie de substances entraîne un désinvestissement progressif vis-à-vis des autres activités."
+        },
+        {
+          "page": 9,
+          "text": "Pour un diagnostic de certitude selon la classification internationale des maladies , la CIM10 , pour un diagnostic de certitude de ce syndrome de dépendance, au moins 3 des manifestations suivantes qui sont listées, doivent habituellement avoir été présentes en même temps au cours de la dernière année.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Pour un diagnostic de certitude selon la classification internationale des maladies , la CIM10 , pour un diagnostic de certitude de ce syndrome de dépendance, au moins 3 des manifestations suivantes qui sont listées, doivent habituellement avoir été présentes en même temps au cours de la dernière année."
+        },
+        {
+          "page": 9,
+          "text": "Ainsi, lorsque l'on effectue une évaluation sur les 12 derniers mois, il va falloir rechercher les",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Ainsi, lorsque l'on effectue une évaluation sur les 12 derniers mois, il va falloir rechercher les"
+        },
+        {
+          "page": 9,
+          "text": "6 symptômes qui sont présentés ici pour pouvoir faire le diagnostic de syndrome de dépendance et au moins 3 doivent être présents.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "6 symptômes qui sont présentés ici pour pouvoir faire le diagnostic de syndrome de dépendance et au moins 3 doivent être présents."
+        },
+        {
+          "page": 9,
+          "text": "Informations déjà tombées à l’examens / informations importantes du cours :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Informations déjà tombées à l’examens / informations importantes du cours :"
+        },
+        {
+          "page": 9,
+          "text": "- Syndrome dépendance +++",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Syndrome dépendance +++"
+        },
+        {
+          "page": 9,
+          "text": "- 3 stades mésusage +++",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "3 stades mésusage +++"
+        },
+        {
+          "page": 9,
+          "text": "- Usage à risque : PAS UN DIAGNOSTIC MEDICAL !!!",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Usage à risque : PAS UN DIAGNOSTIC MEDICAL !!!"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "D. Mésusage dépendance",
+      "page_start": 9,
+      "blocks": [
+        {
+          "page": 9,
+          "text": "Caractéristique de la dépendance",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Caractéristique de la dépendance"
+        },
+        {
+          "page": 9,
+          "text": "Le syndrome de dépendance consiste en un ensemble de phénomènes comportementaux, cognitifs et physiologiques dans lesquels l’usage d’une substance psychoactive spécifique ou d’une catégorie de substance entraîne un désinvestissement progressif vis-à-vis des autres activités. La caractéristique essentielle du syndrome de dépendance correspond à un désir (souvent puissant, parfois compulsif) de boire de l’alcool, de fumer du tabac ou de prendre une autre substance psychoactive (y compris un médicament prescrit).",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Le syndrome de dépendance consiste en un ensemble de phénomènes comportementaux, cognitifs et physiologiques dans lesquels l’usage d’une substance psychoactive spécifique ou d’une catégorie de substance entraîne un désinvestissement progressif vis-à-vis des autres activités. La caractéristique essentielle du syndrome de dépendance correspond à un désir (souvent puissant, parfois compulsif) de boire de l’alcool, de fumer du tabac ou de prendre une autre substance psychoactive (y compris un médicament prescrit)."
+        },
+        {
+          "page": 9,
+          "text": "Au cours des rechutes, c’est-à-dire après une période d’abstinence, le syndrome de dépendance peut se réinstaller beaucoup plus rapidement qu’initialement.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Au cours des rechutes, c’est-à-dire après une période d’abstinence, le syndrome de dépendance peut se réinstaller beaucoup plus rapidement qu’initialement."
+        },
+        {
+          "page": 9,
+          "text": "Pour un diagnostic de certitude, selon la CIM-10, au moins trois des manifestations suivantes doivent habituellement avoir été présentes en même temps au cours de la dernière année :",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Pour un diagnostic de certitude, selon la CIM-10, au moins trois des manifestations suivantes doivent habituellement avoir été présentes en même temps au cours de la dernière année :"
+        },
+        {
+          "page": 9,
+          "text": "1. Désir puissant ou compulsif d’utiliser une substance psychoactive ;",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "1. Désir puissant ou compulsif d’utiliser une substance psychoactive ;"
+        },
+        {
+          "page": 9,
+          "text": "2. Difficultés à contrôler l’usage de la substance (début ou interruption de la consommation ou niveau d’usage) ;",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "2. Difficultés à contrôler l’usage de la substance (début ou interruption de la consommation ou niveau d’usage) ;"
+        },
+        {
+          "page": 9,
+          "text": "3. Syndrome de sevrage physiologique quand le sujet diminue ou arrête la consommation d’une substance psychoactive, comme en témoignent la survenue d’un syndrome de sevrage caractéristique de la substance ou l’usage de la même substance (ou d’une substance apparentée) pour soulager ou éviter les symptômes de sevrage ;",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "3. Syndrome de sevrage physiologique quand le sujet diminue ou arrête la consommation d’une substance psychoactive, comme en témoignent la survenue d’un syndrome de sevrage caractéristique de la substance ou l’usage de la même substance (ou d’une substance apparentée) pour soulager ou éviter les symptômes de sevrage ;"
+        },
+        {
+          "page": 9,
+          "text": "4. Mise en évidence d’une tolérance aux effets de la substance psychoactive : le sujet a besoin d’une quantité plus importante de la substance pour obtenir l’effet désiré ;",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "4. Mise en évidence d’une tolérance aux effets de la substance psychoactive : le sujet a besoin d’une quantité plus importante de la substance pour obtenir l’effet désiré ;"
+        },
+        {
+          "page": 9,
+          "text": "5. Abandon progressif d’autres sources de plaisir et d’intérêt au profit de l’usage de la substance psychoactive, et augmentation du temps passé à se procurer la substance, la consommer, ou récupérer ses effets ;",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "5. Abandon progressif d’autres sources de plaisir et d’intérêt au profit de l’usage de la substance psychoactive, et augmentation du temps passé à se procurer la substance, la consommer, ou récupérer ses effets ;"
+        },
+        {
+          "page": 9,
+          "text": "6. Poursuite de la consommation de la substance malgré la survenue de conséquences manifestement nocives. On doit s’efforcer de préciser si le sujet était au courant, ou s’il aurait dû être au courant, de la nature et de la gravité des conséquences nocives.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "6. Poursuite de la consommation de la substance malgré la survenue de conséquences manifestement nocives. On doit s’efforcer de préciser si le sujet était au courant, ou s’il aurait dû être au courant, de la nature et de la gravité des conséquences nocives."
+        },
+        {
+          "page": 9,
+          "text": "Informations déjà tombées à l’examens / informations importantes du cours :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Informations déjà tombées à l’examens / informations importantes du cours :"
+        },
+        {
+          "page": 9,
+          "text": "Retenir que 3 doivent avoir été présentes en même temps depuis les 12 derniers mois",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Retenir que 3 doivent avoir été présentes en même temps depuis les 12 derniers mois"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "A. Addictions comportementales / addictions sans substances",
+      "page_start": 10,
+      "blocks": [
+        {
+          "page": 10,
+          "text": "Plusieurs addictions comportementales",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Plusieurs addictions comportementales"
+        },
+        {
+          "page": 10,
+          "text": "Officiellement reconnues :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Officiellement reconnues :"
+        },
+        {
+          "page": 10,
+          "text": "  - Jeux de hasard et d’argent (JHA)",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Jeux de hasard et d’argent (JHA)"
+        },
+        {
+          "page": 10,
+          "text": "  - Trouble du jeu vidéo (gaming disorder)",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Trouble du jeu vidéo (gaming disorder)"
+        },
+        {
+          "page": 10,
+          "text": "Non-officiellement reconnues :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Non-officiellement reconnues :"
+        },
+        {
+          "page": 10,
+          "text": "  - Addictions sexuelles",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Addictions sexuelles"
+        },
+        {
+          "page": 10,
+          "text": "  - Addiction alimentaire",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Addiction alimentaire"
+        },
+        {
+          "page": 10,
+          "text": "  - Achats compulsifs",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Achats compulsifs"
+        },
+        {
+          "page": 10,
+          "text": "  - Addiction à l’exercice physique",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Addiction à l’exercice physique"
+        },
+        {
+          "page": 10,
+          "text": "Critère du JHA Pour pouvoir poser le diagnostic d'un jeu de hasard et d'argent ou d'un trouble de du jeu/un jeu pathologique. Il va falloir analyser 9 symptômes .",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Critère du JHA Pour pouvoir poser le diagnostic d'un jeu de hasard et d'argent ou d'un trouble de du jeu/un jeu pathologique. Il va falloir analyser 9 symptômes ."
+        },
+        {
+          "page": 10,
+          "text": "Le JHA correspond à une pratique inadaptée, persistante et répétée du jeu , entraînant des troubles significatifs cliniquement pour l'individu, comme en témoigne 4 ou plus des symptômes listés ici sur une période de 12 mois .",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Le JHA correspond à une pratique inadaptée, persistante et répétée du jeu , entraînant des troubles significatifs cliniquement pour l'individu, comme en témoigne 4 ou plus des symptômes listés ici sur une période de 12 mois ."
+        },
+        {
+          "page": 10,
+          "text": "1. Besoin de jouer avec des sommes d’argent croissantes pour atteindre l’état d’excitation désiré",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "1. Besoin de jouer avec des sommes d’argent croissantes pour atteindre l’état d’excitation désiré"
+        },
+        {
+          "page": 10,
+          "text": "2. Agitation ou irritabilité lors des tentations de réduction ou d’arrêt de la pratique du jeu",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "2. Agitation ou irritabilité lors des tentations de réduction ou d’arrêt de la pratique du jeu"
+        },
+        {
+          "page": 10,
+          "text": "3. Efforts répétés mais infructueux pour contrôler, réduire ou arrêter la pratique du jeu",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "3. Efforts répétés mais infructueux pour contrôler, réduire ou arrêter la pratique du jeu"
+        },
+        {
+          "page": 10,
+          "text": "4. Préoccupation par le jeu (ex : préoccupation par la remémoration d’expériences de jeu passées ou par la prévision de tentatives prochaines, ou par les moyens de se procurer de l’argent pour jouer)",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "4. Préoccupation par le jeu (ex : préoccupation par la remémoration d’expériences de jeu passées ou par la prévision de tentatives prochaines, ou par les moyens de se procurer de l’argent pour jouer)"
+        },
+        {
+          "page": 10,
+          "text": "5. Joue pour échapper aux difficultés ou pour soulager une humeur dysphorique (ex :",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "5. Joue pour échapper aux difficultés ou pour soulager une humeur dysphorique (ex :"
+        },
+        {
+          "page": 10,
+          "text": "sentiment d’impuissance, de culpabilité, d’anxiété ou de dépression)",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "sentiment d’impuissance, de culpabilité, d’anxiété ou de dépression)"
+        },
+        {
+          "page": 10,
+          "text": "6. Après avoir perdu de l’argent au jeu, retourne souvent jouer un autre jour pour recouvrer ses pertes (pour se « refaire »)",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "6. Après avoir perdu de l’argent au jeu, retourne souvent jouer un autre jour pour recouvrer ses pertes (pour se « refaire »)"
+        },
+        {
+          "page": 10,
+          "text": "7. Mentir pour dissimuler l’ampleur réelle des habitudes de jeu",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "7. Mentir pour dissimuler l’ampleur réelle des habitudes de jeu"
+        },
+        {
+          "page": 10,
+          "text": "8. Met en danger ou perd une relation affective importante, un emploi ou des possibilités d’étude ou de carrière à cause du jeu",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "8. Met en danger ou perd une relation affective importante, un emploi ou des possibilités d’étude ou de carrière à cause du jeu"
+        },
+        {
+          "page": 10,
+          "text": "9. Compte du jeu n’est pas mieux expliquée par un épisode maniaque",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "9. Compte du jeu n’est pas mieux expliquée par un épisode maniaque"
+        },
+        {
+          "page": 10,
+          "text": "Important de déterminer que la pratique du jeu n’est pas mieux expliquée par un épisode maniaque",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Important de déterminer que la pratique du jeu n’est pas mieux expliquée par un épisode maniaque"
+        },
+        {
+          "page": 10,
+          "text": "Critère du trouble du jeu vidéo",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Critère du trouble du jeu vidéo"
+        },
+        {
+          "page": 10,
+          "text": "• Critère retrouver dans les autres addictions en lien avec les substances psychoactives et le JHA",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Critère retrouver dans les autres addictions en lien avec les substances psychoactives et le JHA"
+        },
+        {
+          "page": 10,
+          "text": "• Comportement lié à la pratique des jeux vidéo ou des jeux numériques caractérisé par :",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Comportement lié à la pratique des jeux vidéo ou des jeux numériques caractérisé par :"
+        },
+        {
+          "page": 10,
+          "text": "  - Une perte de contrôle sur le jeu",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Une perte de contrôle sur le jeu"
+        },
+        {
+          "page": 10,
+          "text": "  - Une priorité accrue accordée au jeu, au point que celui-ci prenne le pas sur d’autres centres d’intérêts et activités quotidiennes",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "Une priorité accrue accordée au jeu, au point que celui-ci prenne le pas sur d’autres centres d’intérêts et activités quotidiennes"
+        },
+        {
+          "page": 10,
+          "text": "  - La poursuite ou la pratique croissance du jeu en dépit de répercussions",
+          "kind": "bullet",
+          "bullet_level": 1,
+          "normalized_text": "La poursuite ou la pratique croissance du jeu en dépit de répercussions"
+        },
+        {
+          "page": 11,
+          "text": "• Le comportement doit être d’une sévérité suffisante pour entraîner une altération non négligeable des activités personnelles, familiales, sociales, éducatives, professionnelles ou d’autres domaines importants du fonctionnement du sujet",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Le comportement doit être d’une sévérité suffisante pour entraîner une altération non négligeable des activités personnelles, familiales, sociales, éducatives, professionnelles ou d’autres domaines importants du fonctionnement du sujet"
+        },
+        {
+          "page": 11,
+          "text": "• Se manifester clairement sur une période d’au moins 12 mois",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Se manifester clairement sur une période d’au moins 12 mois"
+        },
+        {
+          "page": 11,
+          "text": "Informations déjà tombées à l’examens / informations importantes du cours :",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Informations déjà tombées à l’examens / informations importantes du cours :"
+        },
+        {
+          "page": 11,
+          "text": "- Définition JHA",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Définition JHA"
+        },
+        {
+          "page": 11,
+          "text": "- Types addictions comportementales",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Types addictions comportementales"
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "Ce qu’il faut retenir",
+      "page_start": 11,
+      "blocks": [
+        {
+          "page": 11,
+          "text": "Bilan",
+          "kind": "label",
+          "bullet_level": null,
+          "normalized_text": "Bilan"
+        },
+        {
+          "page": 11,
+          "text": "• Addictologie = spécialité médicale, pluridisciplinaire",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Addictologie = spécialité médicale, pluridisciplinaire"
+        },
+        {
+          "page": 11,
+          "text": "• Conduites addictives = problème majeur de santé publique",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Conduites addictives = problème majeur de santé publique"
+        },
+        {
+          "page": 11,
+          "text": "• Différents types de comportements, certains pouvant être associés à une souffrance",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Différents types de comportements, certains pouvant être associés à une souffrance"
+        },
+        {
+          "page": 11,
+          "text": "Évolution d’une conduite addictive",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Évolution d’une conduite addictive"
+        },
+        {
+          "page": 11,
+          "text": "On observe que la conduites addictives (point noir) est incluse dans les sphères importantes de la vie, notamment dans les sphères :",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "On observe que la conduites addictives (point noir) est incluse dans les sphères importantes de la vie, notamment dans les sphères :"
+        },
+        {
+          "page": 11,
+          "text": "• Professionnelle",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Professionnelle"
+        },
+        {
+          "page": 11,
+          "text": "• Familiale",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Familiale"
+        },
+        {
+          "page": 11,
+          "text": "• Alimentaire",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Alimentaire"
+        },
+        {
+          "page": 11,
+          "text": "• Sportifs/loisirs",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Sportifs/loisirs"
+        },
+        {
+          "page": 11,
+          "text": "• Sexuel/ vie sentimentale",
+          "kind": "bullet",
+          "bullet_level": 0,
+          "normalized_text": "Sexuel/ vie sentimentale"
+        },
+        {
+          "page": 11,
+          "text": "Progressivement on observe la taille du point noir augmenter aux détriments des autres sphères importante de la vie de l’individu pouvant mener vers un syndrome de dépendance.",
+          "kind": "paragraph",
+          "bullet_level": null,
+          "normalized_text": "Progressivement on observe la taille du point noir augmenter aux détriments des autres sphères importante de la vie de l’individu pouvant mener vers un syndrome de dépendance."
+        }
+      ],
+      "qcm_blocks": []
+    },
+    {
+      "title": "Introduction à l’addictologie",
+      "page_start": 12,
+      "blocks": [],
+      "qcm_blocks": [
+        {
+          "page": 12,
+          "text": "Question 1",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Question 1"
+        },
+        {
+          "page": 12,
+          "text": "Le développement d’une conduite addictive peut se caractériser par : (QRM) a. L’existence des boissons sans alcool b. Une mauvaise manière de boire c. Une vulnérabilité environnementale d. Une vulnérabilité individuelle e. Le pouvoir addictif d’une substance psychoactive",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Le développement d’une conduite addictive peut se caractériser par : (QRM) a. L’existence des boissons sans alcool b. Une mauvaise manière de boire c. Une vulnérabilité environnementale d. Une vulnérabilité individuelle e. Le pouvoir addictif d’une substance psychoactive"
+        },
+        {
+          "page": 12,
+          "text": "Réponses :",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Réponses :"
+        },
+        {
+          "page": 12,
+          "text": "CDE",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "CDE"
+        },
+        {
+          "page": 12,
+          "text": "Question 2",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Question 2"
+        },
+        {
+          "page": 12,
+          "text": "Quel est le nombre d’expérimentateurs d’alcool en France en 2022 ? (QRU) a. 37 millions b. 47 millions c. 27 millions d. 17 millions e. 57 millions",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Quel est le nombre d’expérimentateurs d’alcool en France en 2022 ? (QRU) a. 37 millions b. 47 millions c. 27 millions d. 17 millions e. 57 millions"
+        },
+        {
+          "page": 12,
+          "text": "Réponse :",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Réponse :"
+        },
+        {
+          "page": 12,
+          "text": "B",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "B"
+        },
+        {
+          "page": 12,
+          "text": "Question 3",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Question 3"
+        },
+        {
+          "page": 12,
+          "text": "Quelle(s) est(sont) l’(les) addiction(s) comportementale(s) officiellement reconnue(s) ? (QRM) a. L'addiction alimentaire b. Le trouble du jeu vidéo c. Les achats compulsifs d. Le jeu de hasard et d'argent e. L'addiction sexuelle",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Quelle(s) est(sont) l’(les) addiction(s) comportementale(s) officiellement reconnue(s) ? (QRM) a. L'addiction alimentaire b. Le trouble du jeu vidéo c. Les achats compulsifs d. Le jeu de hasard et d'argent e. L'addiction sexuelle"
+        },
+        {
+          "page": 12,
+          "text": "Réponses :",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Réponses :"
+        },
+        {
+          "page": 12,
+          "text": "BD",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "BD"
+        },
+        {
+          "page": 12,
+          "text": "Question 4",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Question 4"
+        },
+        {
+          "page": 12,
+          "text": "Quel type d’usage d’une substance psycho-active est propre à l’alcool ? (QRU) a. L’usage nocif b. L’usage à faible risque c. L’usage à risque d. La dépendance e. Le non-usage",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Quel type d’usage d’une substance psycho-active est propre à l’alcool ? (QRU) a. L’usage nocif b. L’usage à faible risque c. L’usage à risque d. La dépendance e. Le non-usage"
+        },
+        {
+          "page": 12,
+          "text": "Réponse :",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Réponse :"
+        },
+        {
+          "page": 12,
+          "text": "B",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "B"
+        },
+        {
+          "page": 12,
+          "text": "Question 5",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Question 5"
+        },
+        {
+          "page": 12,
+          "text": "Quelle(s) est(sont) la(les) caractéristique(s) de l’addictologie ? (QRM) L'addictologie est une discipline :",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Quelle(s) est(sont) la(les) caractéristique(s) de l’addictologie ? (QRM) L'addictologie est une discipline :"
+        },
+        {
+          "page": 12,
+          "text": "a. Développée depuis plusieurs centaines d’années en France b. Dans laquelle sont développées des actions de prévention c. De l’œnologie d. Uniquement médicale e. Dans laquelle il existe des travaux de neurobiologie",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "a. Développée depuis plusieurs centaines d’années en France b. Dans laquelle sont développées des actions de prévention c. De l’œnologie d. Uniquement médicale e. Dans laquelle il existe des travaux de neurobiologie"
+        },
+        {
+          "page": 12,
+          "text": "Réponse :",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Réponse :"
+        },
+        {
+          "page": 12,
+          "text": "BE",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "BE"
+        },
+        {
+          "page": 13,
+          "text": "Comment utiliser ce document ?",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Comment utiliser ce document ?"
+        },
+        {
+          "page": 13,
+          "text": "Cette fiche de cours a été réalisée à partir des cours des enseignants. Elle reprend les informations importantes et les points clés. Toutefois, elle ne remplace pas le visionnage du e-learning : c’est une fiche d’aide à la prise de notes. Nous vous conseillons de regarder les cours en annotant ce document.",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Cette fiche de cours a été réalisée à partir des cours des enseignants. Elle reprend les informations importantes et les points clés. Toutefois, elle ne remplace pas le visionnage du e-learning : c’est une fiche d’aide à la prise de notes. Nous vous conseillons de regarder les cours en annotant ce document."
+        },
+        {
+          "page": 13,
+          "text": "L’ensemble de ce document relève des législations française et internationale sur le droit d’auteur et la propriété intellectuelle. Tous les droits de reproduction de tout ou partie sont réservés pour les textes ainsi que pour l’ensemble des documents iconographiques, photographiques, vidéo et sonores.",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "L’ensemble de ce document relève des législations française et internationale sur le droit d’auteur et la propriété intellectuelle. Tous les droits de reproduction de tout ou partie sont réservés pour les textes ainsi que pour l’ensemble des documents iconographiques, photographiques, vidéo et sonores."
+        },
+        {
+          "page": 13,
+          "text": "Ce document est interdit à la vente ou à la location. Sa diffusion, duplication, mise à disposition du public (sous quelque forme ou support que ce soit), mise en réseau, partielles ou totales, sont strictement réservées au",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Ce document est interdit à la vente ou à la location. Sa diffusion, duplication, mise à disposition du public (sous quelque forme ou support que ce soit), mise en réseau, partielles ou totales, sont strictement réservées au"
+        },
+        {
+          "page": 13,
+          "text": "Tutorat Santé de Reims.",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Tutorat Santé de Reims."
+        },
+        {
+          "page": 13,
+          "text": "L’utilisation de ce document est strictement réservée à l’usage privé des étudiants inscrits au Tutorat Santé de",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "L’utilisation de ce document est strictement réservée à l’usage privé des étudiants inscrits au Tutorat Santé de"
+        },
+        {
+          "page": 13,
+          "text": "Reims, et non destinée à une utilisation collective, gratuite ou payante.",
+          "kind": "qcm",
+          "bullet_level": null,
+          "normalized_text": "Reims, et non destinée à une utilisation collective, gratuite ou payante."
+        }
+      ]
+    }
+  ],
+  "images": [
+    {
+      "xref": 39,
+      "width": 523,
+      "height": 366,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 1,
+      "pages": [
+        1
+      ],
+      "is_repeated_logo": false
+    },
+    {
+      "xref": 69,
+      "width": 119,
+      "height": 83,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 2,
+      "pages": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "is_repeated_logo": true
+    },
+    {
+      "xref": 71,
+      "width": 566,
+      "height": 289,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 2,
+      "pages": [
+        2
+      ],
+      "is_repeated_logo": false
+    },
+    {
+      "xref": 226,
+      "width": 667,
+      "height": 570,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 3,
+      "pages": [
+        3
+      ],
+      "is_repeated_logo": false
+    },
+    {
+      "xref": 315,
+      "width": 674,
+      "height": 439,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 4,
+      "pages": [
+        4
+      ],
+      "is_repeated_logo": false
+    },
+    {
+      "xref": 407,
+      "width": 489,
+      "height": 354,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 5,
+      "pages": [
+        5
+      ],
+      "is_repeated_logo": false
+    },
+    {
+      "xref": 441,
+      "width": 616,
+      "height": 437,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 6,
+      "pages": [
+        6
+      ],
+      "is_repeated_logo": false
+    },
+    {
+      "xref": 537,
+      "width": 538,
+      "height": 319,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 7,
+      "pages": [
+        7
+      ],
+      "is_repeated_logo": false
+    },
+    {
+      "xref": 921,
+      "width": 879,
+      "height": 195,
+      "bpc": 8,
+      "colorspace": "DeviceRGB",
+      "page": 11,
+      "pages": [
+        11
+      ],
+      "is_repeated_logo": false
+    }
+  ],
+  "sha256": "490489749c9284ea09fc0840eeeabdf10f1d40c732e7bf9b3b50095c628d14fb",
+  "image_export_hint": "Use /image/{xref} endpoint (or export_image_by_xref) for lazy export."
+}

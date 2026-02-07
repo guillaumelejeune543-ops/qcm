@@ -62,6 +62,37 @@ const MATIERE_PALETTE = [
 window.MATIERE_PALETTE = MATIERE_PALETTE;
 let paletteCloseHandlerAdded = false;
 
+function getThumbCacheKey(fileName) {
+  if (!state.user || !fileName) return "";
+  return `qcm_pdf_thumb_${state.user.id}_${encodeURIComponent(fileName)}`;
+}
+
+function getCachedThumb(fileName) {
+  try {
+    const key = getThumbCacheKey(fileName);
+    if (!key) return null;
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function setCachedThumb(fileName, dataUrl) {
+  try {
+    const key = getThumbCacheKey(fileName);
+    if (!key || !dataUrl) return;
+    sessionStorage.setItem(key, dataUrl);
+  } catch {}
+}
+
+function clearCachedThumb(fileName) {
+  try {
+    const key = getThumbCacheKey(fileName);
+    if (!key) return;
+    sessionStorage.removeItem(key);
+  } catch {}
+}
+
 function loadMatiereColors() {
   try {
     const raw = localStorage.getItem(MATIERE_COLORS_KEY);
@@ -1338,7 +1369,7 @@ async function saveQuestionsToBank(questions, meta = {}) {
     type: q.type || "multi",
     question: q.question || "",
     title: meta.title || null,
-    source: meta.source || "json",
+    source: meta.source || "manual",
     pdf_file_name: meta.pdf_file_name || null,
     is_unlocked: unlock,
     payload: q
@@ -1350,14 +1381,6 @@ async function saveQuestionsToBank(questions, meta = {}) {
     loadChapterStats();
   }
 }
-
-window.saveQcmQuestionsToBank = async (questions) => {
-  if (!currentChapitreId) {
-    setMsg($("qcmMsg") || $("pdfMsg"), "warn", "Selectionne un chapitre d'abord.");
-    return;
-  }
-  await saveQuestionsToBank(questions, { source: "json" });
-};
 
 window.getQcmCountsByDifficulty = () => ({ ...qcmCounts });
 
@@ -1526,13 +1549,16 @@ async function listUserPdfs() {
   const token = ++pdfRenderToken;
   const pdfList = $("pdfList");
   if (!pdfList) return;
-  pdfList.innerHTML = "";
-  if (!state.user) return;
+  if (!state.user) {
+    pdfList.innerHTML = "";
+    return;
+  }
   pdfThumbQueue = [];
   pdfThumbRunning = 0;
   pdfSignedUrlMap = new Map();
 
   if (!matieres.length || !chapitres.length) {
+    pdfList.innerHTML = "";
     const empty = document.createElement("div");
     empty.className = "muted";
     empty.style.padding = "10px 4px";
@@ -1546,6 +1572,7 @@ async function listUserPdfs() {
   }
 
   if (!currentChapitreId) {
+    pdfList.innerHTML = "";
     const empty = document.createElement("div");
     empty.className = "muted";
     empty.style.padding = "10px 4px";
@@ -1597,7 +1624,7 @@ async function listUserPdfs() {
     updateQcmChunkInfo(currentPdfName);
   }
 
-  const renderThumb = async (url, container, localToken) => {
+  const renderThumb = async (url, container, localToken, fileName) => {
     if (!window.pdfjsLib) return;
     try {
       const loadingTask = window.pdfjsLib.getDocument({ url, disableFontFace: true, useSystemFonts: true });
@@ -1616,6 +1643,12 @@ async function listUserPdfs() {
       if (localToken !== pdfRenderToken) return;
       container.innerHTML = "";
       container.appendChild(canvas);
+      try {
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+        if (dataUrl && dataUrl.startsWith("data:image")) {
+          setCachedThumb(fileName, dataUrl);
+        }
+      } catch {}
     } catch (err) {
       console.error("pdf thumb error:", err);
     }
@@ -1631,7 +1664,7 @@ async function listUserPdfs() {
     try {
       const signedUrl = pdfSignedUrlMap.get(file.name);
       if (signedUrl) {
-        await renderThumb(signedUrl, thumbEl, localToken);
+        await renderThumb(signedUrl, thumbEl, localToken, file.name);
         thumbEl.dataset.rendered = "1";
       }
     } finally {
@@ -1671,8 +1704,10 @@ async function listUserPdfs() {
       }
     });
   }
+  if (token !== pdfRenderToken) return;
 
   ensureObserver(filteredFiles);
+  pdfList.innerHTML = "";
 
   for (const file of filteredFiles) {
     const item = document.createElement("div");
@@ -1688,7 +1723,13 @@ async function listUserPdfs() {
 
     const thumb = document.createElement("div");
     thumb.className = "pdf-thumb";
-    thumb.innerHTML = `<div class="thumb-loader"></div>`;
+    const cachedThumb = getCachedThumb(file.name);
+    if (cachedThumb) {
+      thumb.innerHTML = `<img src="${cachedThumb}" alt="" />`;
+      thumb.dataset.rendered = "1";
+    } else {
+      thumb.innerHTML = `<div class="thumb-loader"></div>`;
+    }
     thumb.dataset.fileName = file.name;
     thumb.addEventListener("dblclick", async (e) => {
       e.stopPropagation();
@@ -1766,6 +1807,7 @@ async function listUserPdfs() {
         .eq("user_id", state.user.id)
         .eq("pdf_file_name", file.name);
       await clearPdfGenerationBlocked(file.name);
+      clearCachedThumb(file.name);
       hideModal();
       item.remove();
       setMsg($("pdfMsg"), "ok", "PDF supprimé.");
@@ -1949,7 +1991,7 @@ function renderAuth(user) {
   document.body.classList.toggle("auth-locked", locked);
 
   if (user) {
-    loadMatieres().then(() => listUserPdfs());
+    loadMatieres();
   } else {
     currentMatiereId = null;
     currentChapitreId = null;
@@ -2027,7 +2069,7 @@ async function openHistory() {
 
   const { data, error } = await supabaseClient
     .from(QUIZ_RUNS_TABLE)
-    .select("id, created_at, mode, title, metrics, questions, answers, validated, flagged")
+    .select("id, created_at, mode, title, metrics, questions, answers, validated")
     .eq("user_id", state.user.id)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -2113,17 +2155,6 @@ function buildHistoryDetails(row) {
   });
   actions.appendChild(btnAll);
   actions.appendChild(btnWrong);
-  const btnFlag = document.createElement("button");
-  btnFlag.className = "btn btn-secondary";
-  btnFlag.textContent = "Recommencer les marquées";
-  btnFlag.addEventListener("click", () => {
-    hideModal();
-    const qs = Array.isArray(row.questions) ? row.questions : [];
-    const flagged = Array.isArray(row.flagged) ? row.flagged : [];
-    const flaggedQs = flagged.map(i => qs[i]).filter(Boolean);
-    restartWithQuestions(flaggedQs);
-  });
-  actions.appendChild(btnFlag);
   wrap.appendChild(actions);
 
   const qList = Array.isArray(row.questions) ? row.questions : [];

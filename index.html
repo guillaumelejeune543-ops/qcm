@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>QCM LAS &mdash; Plateforme</title>
-  <meta name="description" content="Plateforme gratuite QCM LAS : import JSON, passage interactif, barème LAS, correction et note sur 20." />
+  <meta name="description" content="Plateforme gratuite QCM LAS : passage interactif, barème LAS, correction et note sur 20." />
   <!-- Anti-cache v9 -->
   <link rel="stylesheet" href="styles.css?v=9" />
 </head>
@@ -238,7 +238,7 @@
 
   <div class="grid-2">
 
-    <!-- JSON / PDF INPUT -->
+    <!-- PDF INPUT -->
     <div id="leftPanel" class="panel">
       <div id="noMatierePanel" class="no-chapter-panel no-chapter hidden">
         Aucune matière. Clique sur + pour en creer une.
@@ -307,17 +307,9 @@
       <div id="setupMsg" class="msg"></div>
     </div>
 
-    <!-- SETTINGS -->
+    <!-- QCM / Flash -->
     <div class="panel">
       <div class="mode-cards" id="importCards">
-        <button class="mode-card active" data-view="settings">
-          <div class="mode-card-title">Paramètres</div>
-          <div class="mode-card-sub">Configuration</div>
-        </button>
-        <button class="mode-card" data-view="json">
-          <div class="mode-card-title">JSON</div>
-          <div class="mode-card-sub">Coller un JSON</div>
-        </button>
         <button class="mode-card" data-view="qcm">
           <div class="mode-card-title">QCM</div>
           <div class="mode-card-sub">En construction</div>
@@ -326,71 +318,6 @@
           <div class="mode-card-title">Flash Card</div>
           <div class="mode-card-sub">En construction</div>
         </button>
-      </div>
-
-      <div id="settingsView" class="mode-view">
-        <h3>Paramètres</h3>
-
-      <!-- MODE -->
-      <div class="field">
-        <div class="label-row">
-          <label class="label">Mode</label>
-          <button class="info-tip" type="button" aria-label="Informations sur les modes" data-tip="Examen : correction à la fin du QCM.&#10;Entraînement : correction disponible après chaque question.">i</button>
-        </div>
-        <div class="segmented">
-          <button class="seg active" data-mode="exam">Examen</button>
-          <button class="seg" data-mode="train">Entraînement</button>
-        </div>
-      </div>
-
-      <!-- TIMER -->
-      <div class="field">
-        <label class="label">Minuteur</label>
-        <div class="toggle">
-          <input id="timerToggle" type="checkbox" checked />
-          <label for="timerToggle">
-            Activer le minuteur
-          </label>
-        </div>
-        <div class="row" style="margin-top:8px;">
-          <label class="label" style="margin:0;">Secondes / question</label>
-          <div class="select-wrap" id="timerPerQuestionWrap">
-            <input id="timerPerQuestion" class="select" type="number" min="5" max="200" step="5" value="90" />
-            <button id="timerPerQuestionToggle" class="btn btn-ghost icon-btn select-toggle" type="button" aria-label="Choisir un temps">
-              <span class="icon">▾</span>
-            </button>
-            <div id="timerPerQuestionMenu" class="select-menu" role="listbox" aria-label="Presets de secondes">
-              <button class="select-item" type="button" data-value="30">30</button>
-              <button class="select-item" type="button" data-value="60">60</button>
-              <button class="select-item" type="button" data-value="90">90</button>
-              <button class="select-item" type="button" data-value="120">120</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <h3>Prompt ChatGPT</h3>
-      <div class="row">
-        <button id="btnCopyPrompt" class="btn btn-secondary">Copier le prompt</button>
-        <div class="row">
-          <label class="label" style="margin:0;">Questions</label>
-          <div class="select-wrap" id="promptCountWrap">
-            <input id="promptQuestionCount" class="select" type="number" min="1" max="40" step="1" value="30" />
-            <button id="promptCountToggle" class="btn btn-ghost icon-btn select-toggle" type="button" aria-label="Choisir un nombre">
-              <span class="icon">▾</span>
-            </button>
-            <div id="promptCountMenu" class="select-menu" role="listbox" aria-label="Presets de questions">
-              <button class="select-item" type="button" data-value="10">10</button>
-              <button class="select-item" type="button" data-value="20">20</button>
-              <button class="select-item" type="button" data-value="30">30</button>
-              <button class="select-item" type="button" data-value="40">40</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <pre id="promptBox" class="pre"></pre>
       </div>
 
       <div id="cardPlaceholder" class="mode-view hidden">
@@ -437,30 +364,6 @@
           </div>
         </div>
         <div id="qcmMsg" class="msg"></div>
-      </div>
-
-      <div id="jsonBlock" class="mode-view hidden">
-        <label class="label">Titre du QCM (optionnel)</label>
-        <input id="qcmTitleInput" class="input" type="text" placeholder="Ex: Cardiologie - S1" />
-
-        <label class="label">Coller le JSON</label>
-        <textarea id="jsonInput" class="textarea"
-          placeholder='...'></textarea>
-
-          <div class="row">
-            <button id="btnLoadJson" class="btn btn-primary">Charger le QCM</button>
-            <button id="btnDemo" class="btn btn-ghost">Exemple</button>
-          </div>
-
-        <div class="notice">
-          <div class="notice-title">Comment créer ton QCM</div>
-          <ol class="notice-list">
-            <li>Choisis le nombre de questions que tu souhaites.</li>
-            <li>Ouvre ChatGPT ou Gemini et ajoute ton PDF de cours.</li>
-            <li>Copie le “Prompt ChatGPT” juste à droite, puis colle-le dans l’IA.</li>
-            <li>Récupère le JSON fourni et colle-le juste au dessus (il s'agit du code entier).</li>
-          </ol>
-        </div>
       </div>
 
     </div>
@@ -540,7 +443,7 @@
   <div class="row">
     <button id="btnRestartAll" class="btn btn-primary">Recommencer tout le QCM</button>
     <button id="btnRestartWrong" class="btn btn-secondary">Recommencer les erreurs</button>
-    <button id="btnBackToSetup" class="btn btn-secondary">Nouveau QCM</button>
+    <button id="btnBackToSetup" class="btn btn-secondary">Retour au menu</button>
   </div>
 </section>
 

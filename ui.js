@@ -89,23 +89,70 @@ function buildCorrectionFromData({ question, validated, userAnswer }) {
       rows.push({ text: opt, state, label, userChecked: isU });
     }
   } else {
+    const stripTfPrefix = (value) => String(value ?? "").trim().replace(/^[A-E]\s+/i, "").trim();
+    const isTrueToken = (value) => {
+      const v = stripTfPrefix(value).toLowerCase();
+      return v === "vrai" || v === "true";
+    };
+    const isFalseToken = (value) => {
+      const v = stripTfPrefix(value).toLowerCase();
+      return v === "faux" || v === "false";
+    };
+    const getTfMode = (qq) => {
+      if (!qq || !Array.isArray(qq.items)) return "multi";
+      const items = qq.items.map(stripTfPrefix).filter(Boolean);
+      const vfCount = items.filter((t) => {
+        const l = t.toLowerCase();
+        return l === "vrai" || l === "faux" || l === "true" || l === "false";
+      }).length;
+      const nonVfCount = items.length - vfCount;
+      if (vfCount >= 2 && nonVfCount === 0) return "single";
+      return "multi";
+    };
+    const getTfSingleExpectedTruth = (qq) => {
+      if (!qq || !Array.isArray(qq.items) || !Array.isArray(qq.truth)) return null;
+      const items = qq.items.map(stripTfPrefix);
+      const truth = qq.truth;
+      let idx = items.findIndex(isTrueToken);
+      if (idx >= 0) return !!truth[idx];
+      idx = items.findIndex(isFalseToken);
+      if (idx >= 0) return !truth[idx];
+      return null;
+    };
+
     const truth = q.truth;
     const u = user?.truth || [null,null,null,null,null];
+    const tfMode = getTfMode(q);
 
     rows = [];
-    for (let k=0;k<5;k++){
-      const item = q.items[k];
-      const expected = truth[k] ? "Vrai" : "Faux";
-      const got = (u[k] === null || u[k] === undefined) ? "-" : (u[k] ? "Vrai" : "Faux");
-
+    if (tfMode === "single") {
+      const expectedTruth = getTfSingleExpectedTruth(q);
+      const gotVal = (u[0] === null || u[0] === undefined) ? null : !!u[0];
+      const expectedLabel = expectedTruth === null ? "-" : (expectedTruth ? "Vrai" : "Faux");
+      const gotLabel = gotVal === null ? "-" : (gotVal ? "Vrai" : "Faux");
       let state = "neutral";
       let label = "";
       let suffix = "";
-      if (got === "-") { state = "miss"; label = "Non repondu"; suffix = `Attendu : ${expected}`; }
-      else if ((u[k] === truth[k])) { state = "ok"; label = "Correct"; suffix = `Coché : ${got}`; }
-      else { state = "bad"; label = "Faux"; suffix = `Coché : ${got} · Attendu : ${expected}`; }
+      if (gotVal === null) { state = "miss"; label = "Non repondu"; suffix = `Attendu : ${expectedLabel}`; }
+      else if (expectedTruth !== null && gotVal === expectedTruth) { state = "ok"; label = "Correct"; suffix = `Coché : ${gotLabel}`; }
+      else { state = "bad"; label = "Faux"; suffix = `Coché : ${gotLabel} · Attendu : ${expectedLabel}`; }
+      rows.push({ text: "Réponse", state, label, suffix, letter: "" });
+    } else {
+      rows = [];
+      for (let k=0;k<5;k++){
+        const item = q.items[k];
+        const expected = truth[k] ? "Vrai" : "Faux";
+        const got = (u[k] === null || u[k] === undefined) ? "-" : (u[k] ? "Vrai" : "Faux");
 
-    rows.push({ text: item, state, label, suffix });
+        let state = "neutral";
+        let label = "";
+        let suffix = "";
+        if (got === "-") { state = "miss"; label = "Non repondu"; suffix = `Attendu : ${expected}`; }
+        else if ((u[k] === truth[k])) { state = "ok"; label = "Correct"; suffix = `Coché : ${got}`; }
+        else { state = "bad"; label = "Faux"; suffix = `Coché : ${got} · Attendu : ${expected}`; }
+
+        rows.push({ text: item, state, label, suffix });
+      }
     }
   }
 
@@ -115,10 +162,23 @@ function buildCorrectionFromData({ question, validated, userAnswer }) {
     const check = r.userChecked !== undefined
       ? `<span class="corr-check ${r.userChecked ? "on" : "off"}" aria-hidden="true"></span>`
       : "";
+    const raw = r.text ?? "";
+    let letter = r.letter;
+    let body = r.body;
+    if (body === undefined) {
+      const match = String(raw).match(/^([A-E])\s+(.*)$/);
+      if (match) {
+        letter = letter === undefined ? match[1] : letter;
+        body = match[2];
+      } else {
+        body = String(raw);
+      }
+    }
+    if (letter === undefined) letter = "";
     line.innerHTML = `
-      <span class="corr-letter">${escapeHtml(r.text).slice(0, 1)}</span>
+      ${letter ? `<span class="corr-letter">${escapeHtml(letter)}</span>` : ""}
       <span class="corr-tag">${r.label}</span>
-      <span class="corr-text">${check}${escapeHtml(r.text).slice(2)}</span>
+      <span class="corr-text">${check}${escapeHtml(body)}</span>
       ${r.suffix ? `<span class="corr-suffix">${escapeHtml(r.suffix)}</span>` : ""}
     `;
     list.appendChild(line);

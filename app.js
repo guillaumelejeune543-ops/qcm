@@ -25,70 +25,125 @@ const state = {
 
 let timerInterval = null;
 
-const PROMPT_TEXT = `Tu es un enseignant en LAS.
-Tu dois generer des QCM STRICTEMENT bases sur le cours fourni par l'etudiant.
-
-Contraintes OBLIGATOIRES :
-- Langue : francais
-- Aucun contenu invente (si l'info n'est pas dans le cours, ne pas l'utiliser)
-- Reponse en JSON STRICT (aucun texte hors JSON)
-- 80% questions type "multi" et 20% type "tf"
-- Toujours 5 propositions/items A->E
-- Pour chaque question "multi", choisis un nombre de bonnes reponses ALEATOIRE entre 1 et 5 (distribution uniforme, sans preference).
-- Repartitionne les lettres de reponses correctes de facon EQUILIBREE sur l'ensemble du QCM (eviter que les bonnes reponses soient souvent A/B/C).
-- Interdiction de pattern : ne pas reutiliser la meme combinaison de lettres de bonnes reponses sur plusieurs questions consecutives.
-- Repartition EQUILIBREE du nombre de bonnes reponses : sur l'ensemble du QCM, 1, 2, 3, 4, 5 bonnes reponses doivent apparaitre de maniere proche (ecart max 2 entre categories). Eviter la sur-repetition de 3.
-- Equilibre des lettres correctes : sur l'ensemble du QCM, chaque lettre A/B/C/D/E doit apparaitre un nombre proche de fois parmi les bonnes reponses (eviter que A revienne trop souvent).
-
-Format JSON attendu :
-{
-  "title": "Titre court du QCM",
-  "questions": [
-    {
-      "type": "multi",
-      "difficulty": "facile",
-      "question": "Parmi les propositions suivantes, ...",
-      "options": ["A ...","B ...","C ...","D ...","E ..."],
-      "answer_indices": [1,3],
-      "explanation": "Explication basee sur le cours.",
-      "evidence": [{"page": 3, "excerpt": "copier-coller du cours..."}]
-    },
-    {
-      "type": "tf",
-      "difficulty": "moyen",
-      "question": "Concernant ...",
-      "items": ["A ...","B ...","C ...","D ...","E ..."],
-      "truth": [true,false,true,false,false],
-      "explanation": "Explication basee sur le cours.",
-      "evidence": [{"page": 5, "excerpt": "copier-coller du cours..."}]
-    }
-  ]
-}
-
-Regles :
-- options/items doivent commencer exactement par "A ", "B ", "C ", "D ", "E "
-- answer_indices contient des indices 0..4
-- truth contient 5 booleens
-- difficulty doit être "facile", "moyen" ou "difficile" pour chaque question
-- explanation est en francais, ne doit pas ajouter d'informations hors cours, et se termine par un resume des bonnes reponses par lettres (ex: "Reponses: ABC")
-- evidence est optionnel mais recommande (1 a 3 extraits)
-`;
-
-function clampPromptCount(count) {
-  if (!Number.isFinite(count)) return 30;
-  const n = Math.floor(count);
-  return Math.min(40, Math.max(1, n));
-}
-
 function clampTimerPerQuestionCount(count) {
   if (!Number.isFinite(count)) return 90;
   const n = Math.floor(count);
   return Math.min(200, Math.max(5, n));
 }
 
-function buildPromptText(count) {
-  const n = clampPromptCount(count);
-  return `${PROMPT_TEXT}\nGenere ${n} questions.`;
+function bindQcmSettingsControls(container) {
+  if (!container) return;
+
+  const segWrap = container.querySelector(".segmented");
+  const segButtons = Array.from(container.querySelectorAll(".seg"));
+  const setSegIndex = (mode) => {
+    if (!segWrap) return;
+    const idx = mode === "train" ? 1 : 0;
+    segWrap.style.setProperty("--seg-index", String(idx));
+  };
+  setSegIndex(state.mode);
+  segButtons.forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === state.mode);
+    btn.addEventListener("click", () => {
+      segButtons.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      state.mode = btn.dataset.mode;
+      setSegIndex(state.mode);
+      if (state.mode !== "exam") {
+        stopTimer();
+      } else if (state.timerEnabled && !$("view-quiz").classList.contains("hidden")) {
+        startTimer();
+      }
+      updateTimerDisplay();
+      clearMsg($("setupMsg"));
+    });
+  });
+
+  const timerToggleEl = container.querySelector("#timerToggle");
+  if (timerToggleEl) {
+    timerToggleEl.checked = !!state.timerEnabled;
+    timerToggleEl.addEventListener("change", (e) => {
+      state.timerEnabled = e.target.checked;
+      if (!state.timerEnabled) {
+        stopTimer();
+      } else if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
+        startTimer();
+      }
+      updateTimerDisplay();
+    });
+  }
+
+  const timerPerQuestionEl = container.querySelector("#timerPerQuestion");
+  const applyTimerPerQuestion = (raw, forceClamp) => {
+    const v = parseInt(raw, 10);
+    if (!Number.isFinite(v)) {
+      if (forceClamp) {
+        const next = clampTimerPerQuestionCount(90);
+        if (timerPerQuestionEl) timerPerQuestionEl.value = String(next);
+        state.timerPerQuestion = next;
+        initTimerForQuestions();
+        if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
+          startTimer();
+        }
+        updateTimerDisplay();
+      }
+      return;
+    }
+    const next = forceClamp ? clampTimerPerQuestionCount(v) : Math.floor(v);
+    if (forceClamp && timerPerQuestionEl) timerPerQuestionEl.value = String(next);
+    state.timerPerQuestion = next;
+    initTimerForQuestions();
+    if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
+      startTimer();
+    }
+    updateTimerDisplay();
+  };
+  if (timerPerQuestionEl) {
+    timerPerQuestionEl.value = String(state.timerPerQuestion || 90);
+    timerPerQuestionEl.addEventListener("input", (e) => {
+      applyTimerPerQuestion(e.target.value, false);
+    });
+    timerPerQuestionEl.addEventListener("blur", (e) => {
+      applyTimerPerQuestion(e.target.value, true);
+    });
+  }
+
+  const setupSelectMenuScoped = (wrapId, toggleId, menuId, onPick) => {
+    const wrap = container.querySelector(`#${wrapId}`);
+    const toggle = container.querySelector(`#${toggleId}`);
+    const menu = container.querySelector(`#${menuId}`);
+    if (!wrap || !toggle || !menu) return;
+    if (wrap.dataset.bound === "1") return;
+    wrap.dataset.bound = "1";
+    const closeMenu = () => menu.classList.remove("open");
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.classList.toggle("open");
+    });
+    menu.querySelectorAll(".select-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const v = parseInt(btn.dataset.value || "", 10);
+        onPick(v);
+        closeMenu();
+      });
+    });
+    const onDocClick = (e) => {
+      if (!wrap.isConnected) {
+        document.removeEventListener("click", onDocClick);
+        return;
+      }
+      if (!e.target.closest(`#${wrapId}`)) closeMenu();
+    };
+    document.addEventListener("click", onDocClick);
+  };
+
+  setupSelectMenuScoped("timerPerQuestionWrap", "timerPerQuestionToggle", "timerPerQuestionMenu", (v) => {
+    const next = clampTimerPerQuestionCount(v);
+    if (timerPerQuestionEl) {
+      timerPerQuestionEl.value = String(next);
+      applyTimerPerQuestion(String(next), true);
+    }
+  });
 }
 
 function formatTime(sec) {
@@ -233,9 +288,41 @@ function validateQuestion(q, idx) {
   }
 
   const mustPrefix = ["A ","B ","C ","D ","E "];
+  const ensurePrefixes = (items) => {
+    const labels = ["A", "B", "C", "D", "E"];
+    return items.map((raw, i) => {
+      const value = typeof raw === "string" ? raw.trim() : String(raw ?? "");
+      const label = labels[i] || String(i + 1);
+      const stripped = value.replace(/^[A-E]\s+/i, "").trim();
+      return `${label} ${stripped}`;
+    });
+  };
+  const stripItemPrefix = (value) => String(value ?? "").trim().replace(/^[A-E]\s+/i, "").trim();
+  const isLikelyBogusTfItem = (value) => {
+    const text = stripItemPrefix(value);
+    if (!text) return true;
+    const lower = text.toLowerCase();
+    if (/^(vrai|faux|true|false)(\s*[\).,;:!?'"]*)?$/.test(lower)) return true;
+    const badKeys = [
+      "truth",
+      "explanation",
+      "evidence",
+      "answer_indices",
+      "options",
+      "items",
+      "difficulty",
+      "question",
+      "type",
+      "note"
+    ];
+    const badPattern = new RegExp(`^(${badKeys.join("|")})(\\s*[:\\[{,]|$)`);
+    if (badPattern.test(lower)) return true;
+    return false;
+  };
 
   if (q.type === "multi") {
     if (!Array.isArray(q.options) || q.options.length !== 5) throw new Error(baseErr("options doit contenir 5 elements"));
+    q.options = ensurePrefixes(q.options);
     q.options.forEach((s, i) => {
       if (typeof s !== "string") throw new Error(baseErr("options doivent etre des chaines"));
       if (!s.startsWith(mustPrefix[i])) throw new Error(baseErr(`options[${i}] doit commencer par "${mustPrefix[i]}"`));
@@ -250,9 +337,11 @@ function validateQuestion(q, idx) {
     });
   } else {
     if (!Array.isArray(q.items) || q.items.length !== 5) throw new Error(baseErr("items doit contenir 5 elements"));
+    q.items = ensurePrefixes(q.items);
     q.items.forEach((s, i) => {
       if (typeof s !== "string") throw new Error(baseErr("items doivent etre des chaines"));
       if (!s.startsWith(mustPrefix[i])) throw new Error(baseErr(`items[${i}] doit commencer par "${mustPrefix[i]}"`));
+      if (isLikelyBogusTfItem(s)) throw new Error(baseErr(`items[${i}] semble invalide (ex: "Vrai/Faux" ou champ JSON)`));
     });
     if (!Array.isArray(q.truth) || q.truth.length !== 5) throw new Error(baseErr("truth doit contenir 5 booleens"));
     q.truth.forEach(b => {
@@ -263,55 +352,19 @@ function validateQuestion(q, idx) {
   return q;
 }
 
-function loadQuestionsFromJsonText(text) {
-  const setupMsg = $("setupMsg");
-  clearMsg(setupMsg);
-
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    setMsg(setupMsg, "err", "JSON invalide : impossible a parser. Verifie les crochets, virgules, guillemets.");
-    return false;
-  }
-
-  let questions = null;
-  let titleFromJson = "";
-  if (Array.isArray(data)) {
-    questions = data;
-  } else if (data && typeof data === "object" && Array.isArray(data.questions)) {
-    questions = data.questions;
-    const rawTitle =
-      (typeof data.title === "string" && data.title) ||
-      (typeof data.titre === "string" && data.titre) ||
-      (typeof data.name === "string" && data.name) ||
-      "";
-    titleFromJson = String(rawTitle).trim();
-  }
-  if (!Array.isArray(questions) || questions.length === 0) {
-    setMsg(setupMsg, "err", "Le JSON doit etre un tableau non vide de questions (ou un objet {title, questions}).");
-    return false;
-  }
-
-  try {
-    const validated = questions.map((q,i) => validateQuestion(q,i));
-    state.questions = validated;
-    state.current = 0;
-    state.answers = {};
-    state.validated = {};
-    state.finished = false;
-    state.quizStartedAt = null;
-    state.quizEndedAt = null;
-    const inputTitle = ($("qcmTitleInput")?.value || "").trim();
-    state.qcmTitle = inputTitle || titleFromJson || "QCM";
-    initTimerForQuestions();
-    const titleInfo = state.qcmTitle ? ` (${state.qcmTitle})` : "";
-    clearMsg(setupMsg);
-    return true;
-  } catch (e) {
-    setMsg(setupMsg, "err", e.message || "Erreur de validation du format.");
-    return false;
-  }
+function filterValidQuestions(list) {
+  const questions = Array.isArray(list) ? list : [];
+  const cleaned = [];
+  let dropped = 0;
+  questions.forEach((q, i) => {
+    try {
+      cleaned.push(validateQuestion(q, i));
+    } catch (err) {
+      dropped += 1;
+      console.warn("Question invalide ignoree:", err);
+    }
+  });
+  return { questions: cleaned, dropped };
 }
 
 function normalizeDifficulty(value) {
@@ -341,6 +394,95 @@ function calcLasScore(errors) {
   return 0.0;
 }
 
+function stripTfPrefix(value) {
+  return String(value ?? "").trim().replace(/^[A-E]\s+/i, "").trim();
+}
+
+function isTrueToken(value) {
+  const v = stripTfPrefix(value).toLowerCase();
+  return v === "vrai" || v === "true";
+}
+
+function isFalseToken(value) {
+  const v = stripTfPrefix(value).toLowerCase();
+  return v === "faux" || v === "false";
+}
+
+function getTfMode(q) {
+  if (!q || !Array.isArray(q.items)) return "multi";
+  const items = q.items.map(stripTfPrefix).filter(Boolean);
+  const vfCount = items.filter((t) => {
+    const l = t.toLowerCase();
+    return l === "vrai" || l === "faux" || l === "true" || l === "false";
+  }).length;
+  const nonVfCount = items.length - vfCount;
+  if (vfCount >= 2 && nonVfCount === 0) return "single";
+  return "multi";
+}
+
+function getTfThemeFromItems(q) {
+  if (!q || !Array.isArray(q.items)) return "";
+  const items = q.items.map(stripTfPrefix).filter(Boolean);
+  if (items.length < 2) return "";
+  const wordsList = items.map((text) => text.split(/\s+/).filter(Boolean));
+  const minLen = Math.min(...wordsList.map((w) => w.length));
+  if (!Number.isFinite(minLen) || minLen <= 0) return "";
+
+  const normalizeWord = (word) =>
+    String(word || "")
+      .toLowerCase()
+      .replace(/[’'"]/g, "")
+      .replace(/[.,;:!?]+$/g, "");
+
+  const prefix = [];
+  for (let i = 0; i < minLen; i++) {
+    const token = normalizeWord(wordsList[0][i]);
+    if (!token) break;
+    const matches = wordsList.every((w) => normalizeWord(w[i]) === token);
+    if (!matches) break;
+    prefix.push(wordsList[0][i]);
+  }
+
+  let candidate = prefix.join(" ").trim();
+  if (!candidate) return "";
+  candidate = candidate.replace(/[.,;:!?]+$/g, "").trim();
+  if (candidate.length < 3) return "";
+
+  const stop = new Set([
+    "le","la","les","l","de","des","du","un","une","au","aux","en","et","d","a"
+  ]);
+  const wordsLower = candidate
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const meaningful = wordsLower.some((w) => !stop.has(w));
+  if (!meaningful) return "";
+
+  return candidate;
+}
+
+function getQuestionTitle(q) {
+  if (!q || typeof q !== "object") return "";
+  if (q.type !== "tf") return q.question || "";
+  const tfMode = getTfMode(q);
+  if (tfMode !== "multi") return q.question || "";
+  const theme = getTfThemeFromItems(q);
+  if (theme) return theme;
+  return q.question || "";
+}
+
+function getTfSingleExpectedTruth(q) {
+  if (!q || !Array.isArray(q.items) || !Array.isArray(q.truth)) return null;
+  const items = q.items.map(stripTfPrefix);
+  const truth = q.truth;
+  let idx = items.findIndex(isTrueToken);
+  if (idx >= 0) return !!truth[idx];
+  idx = items.findIndex(isFalseToken);
+  if (idx >= 0) return !truth[idx];
+  return null;
+}
+
 function scoreMulti(q, userSet) {
   const correct = new Set(q.answer_indices);
   let falseChecked = 0;
@@ -360,27 +502,26 @@ function scoreTF(q, userTruth) {
   return { score: calcLasScore(errors), errors };
 }
 
-function renderSetup() {
-  const promptCount = $("promptQuestionCount");
-  if (promptCount) {
-    const v = parseInt(promptCount.value, 10);
-    promptCount.value = String(clampPromptCount(v));
-  }
-  const count = parseInt($("promptQuestionCount")?.value || "30", 10);
-  $("promptBox").textContent = buildPromptText(count);
+function scoreTfSingle(q, userTruthValue) {
+  const expected = getTfSingleExpectedTruth(q);
+  if (expected === null) return { score: 0, errors: 1 };
+  const ok = userTruthValue === expected;
+  return { score: calcLasScore(ok ? 0 : 1), errors: ok ? 0 : 1 };
+}
 
+function renderSetup() {
   // segmented mode
   document.querySelectorAll(".seg").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.mode === state.mode);
   });
 
   setAccent(state.accent || "rosesalmon");
-  $("timerToggle").checked = state.timerEnabled;
-  $("timerPerQuestion").value = String(state.timerPerQuestion || 90);
+  const timerToggle = $("timerToggle");
+  if (timerToggle) timerToggle.checked = state.timerEnabled;
+  const timerPerQuestion = $("timerPerQuestion");
+  if (timerPerQuestion) timerPerQuestion.value = String(state.timerPerQuestion || 90);
   if (state.theme === "light") setTheme("light"); else setTheme("dark");
   updateTimerDisplay();
-  const titleInput = $("qcmTitleInput");
-  if (titleInput) titleInput.value = state.qcmTitle || "";
 
   if (state.questions.length) {
     setMsg($("setupMsg"), "ok", `QCM en memoire : ${state.questions.length} questions. Tu peux aller a l'etape 2.`);
@@ -424,12 +565,17 @@ function renderQuiz() {
 
   const titleEl = document.createElement("div");
   titleEl.className = "q-title";
-  titleEl.textContent = q.question;
+  titleEl.textContent = getQuestionTitle(q);
   card.appendChild(titleEl);
 
   const meta = document.createElement("div");
   meta.className = "q-meta";
-  meta.textContent = q.type === "multi" ? "QCM" : "Vrai/Faux par items (A->E)";
+  if (q.type === "multi") {
+    meta.textContent = "QCM";
+  } else {
+    const tfMode = getTfMode(q);
+    meta.textContent = tfMode === "single" ? "Vrai/Faux" : "Vrai/Faux par items (A->E)";
+  }
   card.appendChild(meta);
 
   // previous saved answer
@@ -466,31 +612,32 @@ function renderQuiz() {
   } else {
     // tf
     const savedTruth = saved?.payload?.truth ?? [null,null,null,null,null];
+    const tfMode = getTfMode(q);
 
-    q.items.forEach((item, i) => {
+    if (tfMode === "single") {
       const row = document.createElement("div");
       row.className = "tf-row";
 
       const it = document.createElement("div");
       it.className = "item";
-      it.textContent = item;
+      it.textContent = "Réponse";
 
       const pillV = document.createElement("button");
       pillV.type = "button";
-      pillV.className = "pill" + (savedTruth[i] === true ? " active" : "");
+      pillV.className = "pill" + (savedTruth[0] === true ? " active" : "");
       pillV.textContent = "Vrai";
       pillV.addEventListener("click", () => {
-        savedTruth[i] = true;
+        savedTruth[0] = true;
         state.answers[idx] = { type: "tf", payload: { truth: savedTruth } };
         renderQuiz(); // re-render to update pills
       });
 
       const pillF = document.createElement("button");
       pillF.type = "button";
-      pillF.className = "pill" + (savedTruth[i] === false ? " active" : "");
+      pillF.className = "pill" + (savedTruth[0] === false ? " active" : "");
       pillF.textContent = "Faux";
       pillF.addEventListener("click", () => {
-        savedTruth[i] = false;
+        savedTruth[0] = false;
         state.answers[idx] = { type: "tf", payload: { truth: savedTruth } };
         renderQuiz();
       });
@@ -499,7 +646,41 @@ function renderQuiz() {
       row.appendChild(pillV);
       row.appendChild(pillF);
       card.appendChild(row);
-    });
+    } else {
+      q.items.forEach((item, i) => {
+        const row = document.createElement("div");
+        row.className = "tf-row";
+
+        const it = document.createElement("div");
+        it.className = "item";
+        it.textContent = item;
+
+        const pillV = document.createElement("button");
+        pillV.type = "button";
+        pillV.className = "pill" + (savedTruth[i] === true ? " active" : "");
+        pillV.textContent = "Vrai";
+        pillV.addEventListener("click", () => {
+          savedTruth[i] = true;
+          state.answers[idx] = { type: "tf", payload: { truth: savedTruth } };
+          renderQuiz(); // re-render to update pills
+        });
+
+        const pillF = document.createElement("button");
+        pillF.type = "button";
+        pillF.className = "pill" + (savedTruth[i] === false ? " active" : "");
+        pillF.textContent = "Faux";
+        pillF.addEventListener("click", () => {
+          savedTruth[i] = false;
+          state.answers[idx] = { type: "tf", payload: { truth: savedTruth } };
+          renderQuiz();
+        });
+
+        row.appendChild(it);
+        row.appendChild(pillV);
+        row.appendChild(pillF);
+        card.appendChild(row);
+      });
+    }
   }
 
   // message for validation
@@ -566,13 +747,22 @@ function validateCurrent() {
     result = scoreMulti(q, set);
   } else {
     const truth = payload.truth || [];
-    // require all answered
-    const missing = truth.filter(v => v === null || v === undefined).length;
-    if (missing > 0) {
-      setMsg(quizMsg, "warn", "Il manque des reponses (Vrai/Faux) sur au moins un item.");
-      return;
+    const tfMode = getTfMode(q);
+    if (tfMode === "single") {
+      if (truth[0] === null || truth[0] === undefined) {
+        setMsg(quizMsg, "warn", "Il manque la reponse Vrai/Faux.");
+        return;
+      }
+      result = scoreTfSingle(q, truth[0]);
+    } else {
+      // require all answered
+      const missing = truth.filter(v => v === null || v === undefined).length;
+      if (missing > 0) {
+        setMsg(quizMsg, "warn", "Il manque des reponses (Vrai/Faux) sur au moins un item.");
+        return;
+      }
+      result = scoreTF(q, truth);
     }
-    result = scoreTF(q, truth);
   }
 
   state.validated[idx] = result;
@@ -597,7 +787,12 @@ function validateAllQuestions() {
       result = scoreMulti(q, set);
     } else {
       const truth = a?.truth || [null, null, null, null, null];
-      result = scoreTF(q, truth);
+      const tfMode = getTfMode(q);
+      if (tfMode === "single") {
+        result = scoreTfSingle(q, truth[0]);
+      } else {
+        result = scoreTF(q, truth);
+      }
     }
     state.validated[i] = result;
   }
@@ -629,8 +824,7 @@ async function saveRunIfAuthed() {
     metrics: computeFinalMetrics(),
     questions: state.questions,
     answers: state.answers,
-    validated: state.validated,
-    flagged: []
+    validated: state.validated
   };
   await insertQuizRun(payload);
 }
@@ -678,7 +872,7 @@ function renderResults(filter="all") {
 
     const left = document.createElement("div");
     left.innerHTML = `<div class="result-title">Q${i+1} - ${q.type === "multi" ? "Multi" : "V/F"}</div>
-                      <div class="muted">${escapeHtml(q.question)}</div>`;
+                      <div class="muted">${escapeHtml(getQuestionTitle(q))}</div>`;
 
     const tags = document.createElement("div");
     tags.className = "result-tags";
@@ -723,7 +917,7 @@ function restartWithQuestions(questions) {
   state.current = 0;
   state.answers = {};
   state.validated = {};
-    state.finished = false;
+  state.finished = false;
   state.quizStartedAt = null;
   state.quizEndedAt = null;
   initTimerForQuestions();
@@ -814,51 +1008,11 @@ function openQuestionGrid() {
 }
 
 // -----------------------------
-// Demo JSON
-// -----------------------------
-const DEMO = [
-  {
-    "type": "multi",
-    "difficulty": "moyen",
-    "question": "Parmi les propositions suivantes concernant le bareme LAS, lesquelles sont correctes ?",
-    "options": [
-      "A 0 erreur donne 1.0 point.",
-      "B 1 erreur donne 0.5 point.",
-      "C 2 erreurs donnent 0.2 point.",
-      "D 3 erreurs donnent 0.2 point.",
-      "E >=3 erreurs donnent 0.0 point."
-    ],
-    "answer_indices": [0,1,2,4],
-    "explanation": "Le bareme LAS attribue 1.0 / 0.5 / 0.2 / 0.0 selon le nombre d'erreurs.",
-    "evidence": [{"page": 1, "excerpt": "Nombre d'erreurs: 0->1.0 ; 1->0.5 ; 2->0.2 ; >=3->0.0"}]
-  },
-  {
-    "type": "tf",
-    "difficulty": "facile",
-    "question": "Concernant la structure des questions, chaque item A->E doit etre present.",
-    "items": [
-      "A Une question multi comporte 5 propositions A->E.",
-      "B Une question multi peut avoir 1 a 5 bonnes reponses.",
-      "C Une question V/F a 5 items A->E.",
-      "D La plateforme accepte moins de 5 items pour V/F.",
-      "E Le format impose une reponse JSON stricte."
-    ],
-    "truth": [true,true,true,false,true],
-    "explanation": "Le format impose 5 options/items et une structure JSON stricte.",
-    "evidence": [{"page": 1, "excerpt": "Types: multi (5 propositions) ; tf (5 items). JSON strict requis."}]
-  }
-];
-
-// -----------------------------
 // Events
 // -----------------------------
 function init() {
   setTheme(state.theme || "light");
   setAccent(state.accent || "rosesalmon");
-
-  // set prompt
-  const initCount = parseInt($("promptQuestionCount")?.value || "30", 10);
-  $("promptBox").textContent = buildPromptText(initCount);
 
   // restore UI
   renderSetup();
@@ -1155,30 +1309,6 @@ function init() {
   });
 
 
-  // segmented mode
-  const segWrap = document.querySelector(".segmented");
-  const setSegIndex = (mode) => {
-    if (!segWrap) return;
-    const idx = mode === "train" ? 1 : 0;
-    segWrap.style.setProperty("--seg-index", String(idx));
-  };
-  setSegIndex(state.mode);
-  document.querySelectorAll(".seg").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".seg").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      state.mode = btn.dataset.mode;
-      setSegIndex(state.mode);
-      if (state.mode !== "exam") {
-        stopTimer();
-      } else if (state.timerEnabled && !$("view-quiz").classList.contains("hidden")) {
-        startTimer();
-      }
-      updateTimerDisplay();
-      clearMsg($("setupMsg"));
-    });
-  });
-
   // accent theme menu
   $("btnAccent").addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1209,81 +1339,6 @@ function init() {
     }
   });
 
-  $("timerToggle").addEventListener("change", (e) => {
-    state.timerEnabled = e.target.checked;
-    if (!state.timerEnabled) {
-      stopTimer();
-    } else if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
-      startTimer();
-    }
-    updateTimerDisplay();
-  });
-
-  const timerPerQuestionEl = $("timerPerQuestion");
-  const applyTimerPerQuestion = (raw, forceClamp) => {
-    const v = parseInt(raw, 10);
-    if (!Number.isFinite(v)) {
-      if (forceClamp) {
-        const next = clampTimerPerQuestionCount(90);
-        if (timerPerQuestionEl) timerPerQuestionEl.value = String(next);
-        state.timerPerQuestion = next;
-        initTimerForQuestions();
-        if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
-          startTimer();
-        }
-        updateTimerDisplay();
-      }
-      return;
-    }
-    const next = forceClamp ? clampTimerPerQuestionCount(v) : Math.floor(v);
-    if (forceClamp && timerPerQuestionEl) timerPerQuestionEl.value = String(next);
-    state.timerPerQuestion = next;
-    initTimerForQuestions();
-    if (state.mode === "exam" && !$("view-quiz").classList.contains("hidden")) {
-      startTimer();
-    }
-    updateTimerDisplay();
-  };
-  if (timerPerQuestionEl) {
-    timerPerQuestionEl.addEventListener("input", (e) => {
-      applyTimerPerQuestion(e.target.value, false);
-    });
-    timerPerQuestionEl.addEventListener("blur", (e) => {
-      applyTimerPerQuestion(e.target.value, true);
-    });
-  }
-
-  // copy prompt
-  $("btnCopyPrompt").addEventListener("click", async () => {
-    const count = parseInt($("promptQuestionCount")?.value || "30", 10);
-    await navigator.clipboard.writeText(buildPromptText(count));
-    setMsg($("setupMsg"), "ok", "Prompt copie. Colle-le dans ChatGPT.");
-  });
-
-  const promptCountEl = $("promptQuestionCount");
-  if (promptCountEl) {
-    const applyPromptCount = (raw, forceClamp) => {
-      const v = parseInt(raw, 10);
-      if (!Number.isFinite(v)) {
-        if (forceClamp) {
-          const next = clampPromptCount(30);
-          promptCountEl.value = String(next);
-          $("promptBox").textContent = buildPromptText(next);
-        }
-        return;
-      }
-      const next = forceClamp ? clampPromptCount(v) : Math.floor(v);
-      if (forceClamp) promptCountEl.value = String(next);
-      $("promptBox").textContent = buildPromptText(next);
-    };
-    promptCountEl.addEventListener("input", (e) => {
-      applyPromptCount(e.target.value, false);
-    });
-    promptCountEl.addEventListener("blur", (e) => {
-      applyPromptCount(e.target.value, true);
-    });
-  }
-
   const setupSelectMenu = (wrapId, toggleId, menuId, onPick) => {
     const wrap = $(wrapId);
     const toggle = $(toggleId);
@@ -1306,20 +1361,6 @@ function init() {
     });
   };
 
-  setupSelectMenu("promptCountWrap", "promptCountToggle", "promptCountMenu", (v) => {
-    const next = clampPromptCount(v);
-    promptCountEl.value = String(next);
-    promptCountEl.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-
-  setupSelectMenu("timerPerQuestionWrap", "timerPerQuestionToggle", "timerPerQuestionMenu", (v) => {
-    const next = clampTimerPerQuestionCount(v);
-    if (timerPerQuestionEl) {
-      timerPerQuestionEl.value = String(next);
-      applyTimerPerQuestion(String(next), true);
-    }
-  });
-
   setupSelectMenu("qcmCountWrap", "qcmCountToggle", "qcmCountMenu", (v) => {
     const next = Math.min(20, Math.max(1, Math.floor(v)));
     const qcmCountEl = $("qcmQuestionCount");
@@ -1330,8 +1371,6 @@ function init() {
   });
 
   // import cards (right panel)
-  const jsonBlock = $("jsonBlock");
-  const settingsView = $("settingsView");
   const qcmView = $("qcmView");
   const cardPlaceholder = $("cardPlaceholder");
   const cardPlaceholderTitle = $("cardPlaceholderTitle");
@@ -1340,24 +1379,10 @@ function init() {
     document.querySelectorAll("#importCards .mode-card").forEach(c => {
       c.classList.toggle("active", c.dataset.view === mode);
     });
-    if (mode === "settings") {
-      jsonBlock?.classList.add("hidden");
-      qcmView?.classList.add("hidden");
-      cardPlaceholder?.classList.add("hidden");
-      settingsView?.classList.remove("hidden");
-      return;
-    }
-    settingsView?.classList.add("hidden");
-    if (mode === "json") {
-      jsonBlock?.classList.remove("hidden");
-      qcmView?.classList.add("hidden");
-      cardPlaceholder?.classList.add("hidden");
-    } else if (mode === "qcm") {
-      jsonBlock?.classList.add("hidden");
+    if (mode === "qcm") {
       qcmView?.classList.remove("hidden");
       cardPlaceholder?.classList.add("hidden");
     } else {
-      jsonBlock?.classList.add("hidden");
       qcmView?.classList.add("hidden");
       cardPlaceholder?.classList.remove("hidden");
       if (cardPlaceholderTitle) {
@@ -1369,16 +1394,13 @@ function init() {
       }
     }
   };
-  setInputMode("settings");
+  setInputMode("qcm");
   const setCardsEnabled = (enabled) => {
     document.querySelectorAll("#importCards .mode-card").forEach(card => {
-      if (card.dataset.view === "settings") return;
       card.classList.toggle("disabled", !enabled);
       card.disabled = !enabled;
     });
-    if (!enabled) {
-      setInputMode("settings");
-    }
+    if (!enabled) setInputMode("qcm");
   };
   window.setCardsEnabled = setCardsEnabled;
   setCardsEnabled(false);
@@ -1668,6 +1690,46 @@ function init() {
     `;
     wrap.appendChild(header);
 
+    const settings = document.createElement("div");
+    settings.className = "bank-controls";
+    settings.innerHTML = `
+      <div class="field" style="margin:0;">
+        <div class="label-row">
+          <label class="label">Mode</label>
+          <button class="info-tip" type="button" aria-label="Informations sur les modes" data-tip="Examen : correction à la fin du QCM.&#10;Entraînement : correction disponible après chaque question.">i</button>
+        </div>
+        <div class="segmented">
+          <button class="seg" data-mode="exam">Examen</button>
+          <button class="seg" data-mode="train">Entraînement</button>
+        </div>
+      </div>
+      <div class="field" style="margin:0;">
+        <label class="label">Minuteur</label>
+        <div class="toggle">
+          <input id="timerToggle" type="checkbox" />
+          <label for="timerToggle">
+            Activer le minuteur
+          </label>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <label class="label" style="margin:0;">Secondes / question</label>
+          <div class="select-wrap" id="timerPerQuestionWrap">
+            <input id="timerPerQuestion" class="select" type="number" min="5" max="200" step="5" value="90" />
+            <button id="timerPerQuestionToggle" class="btn btn-ghost icon-btn select-toggle" type="button" aria-label="Choisir un temps">
+              <span class="icon">▾</span>
+            </button>
+            <div id="timerPerQuestionMenu" class="select-menu" role="listbox" aria-label="Presets de secondes">
+              <button class="select-item" type="button" data-value="30">30</button>
+              <button class="select-item" type="button" data-value="60">60</button>
+              <button class="select-item" type="button" data-value="90">90</button>
+              <button class="select-item" type="button" data-value="120">120</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    wrap.appendChild(settings);
+
     const grid = document.createElement("div");
     grid.className = "bank-grid";
     grid.innerHTML = `
@@ -1724,6 +1786,7 @@ function init() {
     actions.appendChild(btnN);
     wrap.appendChild(actions);
 
+    bindQcmSettingsControls(settings);
     const getSelectedDiff = () => {
       const checked = wrap.querySelector('input[name="diff"]:checked');
       return checked ? checked.value : "facile";
@@ -1808,25 +1871,6 @@ function init() {
     });
 
     showModal("QCM disponibles", wrap);
-  });
-
-  // load JSON from textarea
-  $("btnLoadJson").addEventListener("click", () => {
-    const ok = loadQuestionsFromJsonText($("jsonInput").value.trim());
-    if (ok) {
-      if (typeof window.saveQcmQuestionsToBank === "function") {
-        window.saveQcmQuestionsToBank(state.questions);
-      }
-      goStep("quiz");
-    }
-  });
-
-  // demo
-  $("btnDemo").addEventListener("click", () => {
-    $("jsonInput").value = JSON.stringify(DEMO, null, 2);
-    if ($("qcmTitleInput")) $("qcmTitleInput").value = "Exemple QCM";
-    const ok = loadQuestionsFromJsonText($("jsonInput").value);
-    if (ok) goStep("quiz");
   });
 
   // quiz buttons
